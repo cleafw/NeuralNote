@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PianoRoll.h"
+#include "AudioRegion.h"
 #include "NNFileUtils.h"
 #include "Sidebar.h"
 #include "NnEditorConstrainer.h"
@@ -35,6 +36,7 @@ int main(int argc, char** argv)
         if (!passed) ++failures;
     };
     NeuralNoteAudioProcessor processor;
+    check(!processor.getTranscriptionManager()->canRestartTranscription(), "empty project cannot regenerate MIDI");
     Keyboard keyboard;
     keyboard.setVisible(true);
     keyboard.setSize(60, 200);
@@ -196,6 +198,35 @@ int main(int argc, char** argv)
     processor.setRateAndBufferSizeDetails(48000,512);
     processor.prepareToPlay(48000,512);
     check(processor.getSourceAudioManager()->onFileDrop(sourceFile.getFullPathName()),"load original audio without a transcription model");
+    check(processor.getTranscriptionManager()->canRestartTranscription(), "loaded source can regenerate MIDI");
+    processor.setStateToPopulatedAudioAndMidiRegions();
+    check(processor.getTranscriptionManager()->canRestartTranscription(), "finished transcription can regenerate MIDI");
+    processor.setStateToPaused();
+    check(processor.getTranscriptionManager()->canRestartTranscription(), "paused transcription can regenerate from beginning");
+    processor.setStateToProcessing();
+    check(!processor.getTranscriptionManager()->canRestartTranscription(), "running transcription cannot start a duplicate job");
+    processor.setStateToRecording();
+    check(!processor.getTranscriptionManager()->canRestartTranscription(), "recording cannot regenerate MIDI");
+    processor.setStateToAudioLoaded();
+    {
+        AudioRegion waveform(&processor, 100);
+        waveform.setSize(100, 100);
+        waveform.mouseDown(eventFor(waveform, {20, 50}, juce::ModifierKeys::leftButtonModifier));
+        check(std::abs(player->getPlayheadPositionSeconds() - 0.2) < 0.001, "waveform click seeks");
+        waveform.mouseDrag(eventFor(waveform, {70, 50}, juce::ModifierKeys::leftButtonModifier));
+        check(std::abs(player->getPlayheadPositionSeconds() - 0.7) < 0.001, "waveform drag continuously seeks");
+        waveform.mouseDrag(eventFor(waveform, {-20, 50}, juce::ModifierKeys::leftButtonModifier));
+        check(player->getPlayheadPositionSeconds() == 0, "waveform drag clamps at start");
+        waveform.mouseDrag(eventFor(waveform, {200, 50}, juce::ModifierKeys::leftButtonModifier));
+        const auto end = player->getPlayheadPositionSeconds();
+        check(end > 0.99 && end < 1, "waveform drag clamps at audio end");
+        waveform.mouseUp(eventFor(waveform, {200, 50}, 0));
+        waveform.mouseDrag(eventFor(waveform, {40, 50}, juce::ModifierKeys::leftButtonModifier));
+        check(player->getPlayheadPositionSeconds() == end, "waveform release ends seeking");
+        waveform.mouseDown(eventFor(waveform, {40, 50}, juce::ModifierKeys::middleButtonModifier));
+        check(player->getPlayheadPositionSeconds() == end, "middle button does not seek waveform");
+        player->returnToStart();
+    }
     mixer->rebuildFromNotes(fixture);
     auto scheduled = fixture; player->getSynthController()->setNotes(scheduled);
     mixer->setGainDb(SOURCE_AUDIO_TRACK,0); mixer->setPan(SOURCE_AUDIO_TRACK,0);
@@ -226,6 +257,10 @@ int main(int argc, char** argv)
       check(restored.getInstrumentMixer()->isMuted(SOURCE_AUDIO_TRACK) && restored.getInstrumentMixer()->getPan(SOURCE_AUDIO_TRACK)==-1,"session restores original track playback and pan"); }
     check(mixer->findEntry(SOURCE_AUDIO_TRACK)==nullptr,"original track is not a MIDI instrument");
     player->setPlayingState(false);
+    const auto sourceSamples = processor.getSourceAudioManager()->getNumSamplesDownAcquired();
+    processor.clearTranscription();
+    check(processor.getState() == AudioLoaded && processor.getSourceAudioManager()->getNumSamplesDownAcquired() == sourceSamples,
+        "regeneration reset keeps source audio and returns to ready state");
     sourceFile.deleteFile();
     viewport.setViewedComponent(nullptr, false);
     return failures == 0 ? 0 : 1;

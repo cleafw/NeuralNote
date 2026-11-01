@@ -75,6 +75,13 @@ NnToolbar::NnToolbar(NeuralNoteAudioProcessor& inProcessor)
     mClearButton.onClick = [this] { _clearOneStep(); };
     addAndMakeVisible(mClearButton);
 
+    mRegenerateButton.setLabel(nn::tr("Regenerate MIDI"), nn::fonts::buttonLabel());
+    mRegenerateButton.setPadding(10, 10, 0);
+    mRegenerateButton.setTooltip(nn::tr("Transcribe the same audio again using the selected model"));
+    mRegenerateButton.setWantsKeyboardFocus(false);
+    mRegenerateButton.onClick = [this] { mProcessor.getTranscriptionManager()->requestRestartTranscription(); };
+    addAndMakeVisible(mRegenerateButton);
+
     updateEnablements();
 }
 
@@ -100,6 +107,8 @@ void NnToolbar::resized()
     mTempoPill = bounds.removeFromRight(tempo_width).withSizeKeepingCentre(tempo_width, button_height);
     mTempoEditor->setBounds(
         mTempoPill.getX() + PILL_PADDING + label_width + PILL_GAP, mTempoPill.getY(), TEMPO_VALUE_WIDTH, button_height);
+    bounds.removeFromRight(nn::metrics::controlGap);
+    place_right(mRegenerateButton, mRegenerateButton.getIdealWidth());
 }
 
 void NnToolbar::paint(juce::Graphics& g)
@@ -112,7 +121,7 @@ void NnToolbar::paint(juce::Graphics& g)
     auto filename_area = getLocalBounds()
                              .withTrimmedBottom(1)
                              .reduced(PADDING_SIDE, 0)
-                             .withTrimmedRight(getWidth() - mTempoPill.getX() + FILENAME_GAP);
+                             .withTrimmedRight(getWidth() - mRegenerateButton.getX() + FILENAME_GAP);
 
     // Nothing at all when there is no file: the waveform's drop zone right below already says the
     // window is empty, and a second sentence saying it is one too many.
@@ -126,6 +135,7 @@ void NnToolbar::paint(juce::Graphics& g)
 void NnToolbar::updateEnablements()
 {
     const bool is_finished = mProcessor.getState() == PopulatedAudioAndMidiRegions;
+    mRegenerateButton.setEnabled(mProcessor.getTranscriptionManager()->canRestartTranscription());
 
     // Export and drag stay off mid-transcription: a half-finished file gives no sign that it is one.
     mExportButton.setEnabled(is_finished);

@@ -550,6 +550,9 @@ void NeuralNoteMainView::showFileMenu()
     menu.addItem(nn::tr("Open audio..."), idle, false, [this] { mVisualizationPanel.getCombinedAudioMidiRegion().getAudioRegion()->openAudioFile(); });
     menu.addSeparator();
     const auto all = allNotePrograms();
+    menu.addItem(nn::tr("Regenerate MIDI"), mProcessor.getTranscriptionManager()->canRestartTranscription(), false,
+        [safe = Component::SafePointer<NeuralNoteMainView>(this)] { if (safe != nullptr) safe->mProcessor.getTranscriptionManager()->requestRestartTranscription(); });
+    menu.addSeparator();
     const auto selected = mSidebar.getSelectedPrograms();
     const bool selectedNotes = std::any_of(selected.begin(), selected.end(), [this](int p) { auto* e = mProcessor.getInstrumentMixer()->findEntry(p); return e && e->hasNotes(); });
     menu.addItem(nn::tr("Export all MIDI"), idle && !all.empty(), false, [this,all] { mExporter.start(all, false); });

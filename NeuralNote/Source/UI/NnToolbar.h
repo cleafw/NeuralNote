@@ -48,6 +48,7 @@ private:
     NnFlatButton mExportButton {"ExportMidiOut"};
     MidiFileDrag mDragButton;
     NnFlatButton mClearButton {"Clear"};
+    NnFlatButton mRegenerateButton {"RegenerateMidi"};
 
     juce::Rectangle<int> mTempoPill;
 

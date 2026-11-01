@@ -224,9 +224,30 @@ void AudioRegion::setIsFileOver(bool inIsFileOver)
 
 void AudioRegion::mouseDown(const juce::MouseEvent& e)
 {
-    if (mProcessor->canPlay()) {
-        mPlayhead.setPlayheadTime(_pixelToTime(static_cast<float>(e.x)));
+    mIsSeeking = false;
+    if (e.mods.isPopupMenu()) {
+        PopupMenu menu;
+        const Component::SafePointer<AudioRegion> safe(this);
+        menu.addItem(nn::tr("Regenerate MIDI"), mProcessor->getTranscriptionManager()->canRestartTranscription(), false,
+            [safe] { if (safe != nullptr) safe->mProcessor->getTranscriptionManager()->requestRestartTranscription(); });
+        menu.showMenuAsync(PopupMenu::Options().withTargetComponent(this));
+    } else if (e.mods.isLeftButtonDown() && mProcessor->canPlay()) {
+        mIsSeeking = true;
+        mProcessor->getValueTree().setProperty(NnId::PlayheadCenteredId, false, nullptr);
+        _seekToPixel(e.position.x);
     }
+}
+
+void AudioRegion::mouseDrag(const juce::MouseEvent& e)
+{
+    if (mIsSeeking && e.mods.isLeftButtonDown() && mProcessor->canPlay()) _seekToPixel(e.position.x);
+}
+
+void AudioRegion::_seekToPixel(float pixel)
+{
+    // Player accepts positions strictly below duration; dragging past either edge must clamp.
+    const double end = juce::jmax(0.0, mProcessor->getSourceAudioManager()->getAudioSampleDuration() - 0.0001);
+    mPlayhead.setPlayheadTime(juce::jlimit(0.0, end, static_cast<double>(_pixelToTime(pixel))));
 }
 
 void AudioRegion::setZoomLevel(double inZoomLevel)

@@ -26,6 +26,8 @@ public:
     void setIsFileOver(bool inIsFileOver);
 
     void mouseDown(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent&) override { mIsSeeking = false; }
 
     void setZoomLevel(double inZoomLevel);
 
@@ -61,6 +63,7 @@ private:
     void _onVBlankCallback();
 
     float _pixelToTime(float inPixel) const;
+    void _seekToPixel(float pixel);
 
     NeuralNoteAudioProcessor* mProcessor;
 
@@ -79,6 +82,7 @@ private:
     int mLastPlayheadX = 0;
     bool mIsFileOver = false;
     bool mSymmetricBars = true;
+    bool mIsSeeking = false;
 };
 
 #endif // AudioRegion_h

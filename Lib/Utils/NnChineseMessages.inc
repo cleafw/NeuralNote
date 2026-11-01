@@ -60,3 +60,7 @@
 {"huggingface.co answered HTTP ", u8"huggingface.co 返回 HTTP 状态码 "},
 {"huggingface.co sent more than the expected size", u8"huggingface.co 发送的数据超出预期大小"},
 {"The connection dropped", u8"连接中断"},
+{"Regenerate MIDI", u8"重新生成 MIDI"},
+{"Install a transcription model before regenerating MIDI.", u8"请先安装转录模型，再重新生成 MIDI。"},
+{"Replace the current MIDI with a new transcription using the selected model? The original audio will be kept. Export the current MIDI first if you want to keep it.", u8"使用当前选择的模型重新转录并替换当前 MIDI？原音频会保留。如果需要保留当前 MIDI，请先导出。"},
+{"Transcribe the same audio again using the selected model", u8"使用当前选择的模型重新转录同一音频"},

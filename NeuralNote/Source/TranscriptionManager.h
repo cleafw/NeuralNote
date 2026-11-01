@@ -28,6 +28,10 @@ public:
     /** Transcribes the loaded audio from the start. AudioLoaded only. Message thread. */
     void startTranscription();
 
+    bool canRestartTranscription() const;
+    /** Confirm replacing the result, then transcribe the same source with current settings. */
+    void requestRestartTranscription();
+
     /**
      * Continues a paused transcription where it stopped. Paused only. Tells the user instead when
      * the model it was started with is no longer installed. Message thread.
@@ -192,6 +196,8 @@ private:
 
     ThreadPool mThreadPool;
     std::function<void()> mJobLambda;
+    bool mRestartConfirmationPending = false;
+    JUCE_DECLARE_WEAK_REFERENCEABLE(TranscriptionManager)
 };
 
 #endif //TranscriptionManager_h

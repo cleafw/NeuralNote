@@ -383,6 +383,41 @@ void TranscriptionManager::clear()
     }
 }
 
+bool TranscriptionManager::canRestartTranscription() const
+{
+    const auto state = mProcessor->getState();
+    return !mJobActive.load() && (state == AudioLoaded || state == Paused || state == PopulatedAudioAndMidiRegions)
+        && mProcessor->getSourceAudioManager()->getNumSamplesDownAcquired() >= TRANSCRIPTION_SAMPLE_RATE;
+}
+
+void TranscriptionManager::requestRestartTranscription()
+{
+    if (!canRestartTranscription() || mRestartConfirmationPending) return;
+    if (!NNFileUtils::getInstalledModelSize(NnGlobalSettings::getModelSize()).has_value()) {
+        NativeMessageBox::showMessageBoxAsync(MessageBoxIconType::WarningIcon,
+            nn::tr("Model not installed."), nn::tr("Install a transcription model before regenerating MIDI."));
+        return;
+    }
+    if (mProcessor->getState() == AudioLoaded) { startTranscription(); return; }
+
+    mRestartConfirmationPending = true;
+    WeakReference<TranscriptionManager> weak(this);
+    AlertWindow::showAsync(MessageBoxOptions().withIconType(MessageBoxIconType::QuestionIcon)
+        .withTitle(nn::tr("Regenerate MIDI"))
+        .withMessage(nn::tr("Replace the current MIDI with a new transcription using the selected model? The original audio will be kept. Export the current MIDI first if you want to keep it."))
+        .withButton(nn::tr("Regenerate MIDI")).withButton(nn::tr("Cancel")),
+        [weak](int result) {
+            if (weak == nullptr) return;
+            weak->mRestartConfirmationPending = false;
+            if (result != 1 || !weak->canRestartTranscription()) return;
+            // Recheck before clearing: the model may have been removed while the dialog was open.
+            if (!NNFileUtils::getInstalledModelSize(NnGlobalSettings::getModelSize()).has_value()) return;
+            weak->mProcessor->getPlayer()->returnToStart();
+            weak->mProcessor->clearTranscription();
+            weak->startTranscription();
+        });
+}
+
 void TranscriptionManager::startTranscription()
 {
     jassert(MessageManager::getInstance()->isThisTheMessageThread());
