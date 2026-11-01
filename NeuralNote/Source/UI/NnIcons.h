@@ -53,6 +53,9 @@ Path folderStroked(Rectangle<float> inBounds);
 /** Stroke at 1.3 px. Down arrow onto a baseline. */
 Path downloadStroked(Rectangle<float> inBounds);
 
+/** Stroke at 1.3 px. Four outward arrows indicating drag/move. */
+Path dragStroked(Rectangle<float> inBounds);
+
 /** Stroke at 1.3 px. */
 Path trashStroked(Rectangle<float> inBounds);
 

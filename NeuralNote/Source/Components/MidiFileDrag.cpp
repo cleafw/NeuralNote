@@ -14,7 +14,7 @@ MidiFileDrag::MidiFileDrag(NeuralNoteAudioProcessor* inProcessor)
     : NnFlatButton("DragMidiOut")
     , mProcessor(inProcessor)
 {
-    setIcon(nn::icons::downloadStroked, IconStyle::stroked, 13.0f);
+    setIcon(nn::icons::dragStroked, IconStyle::stroked, 13.0f);
     setLabel(nn::tr("Drag MIDI out"), nn::fonts::buttonLabel());
     setPadding(12, 12, 7);
 

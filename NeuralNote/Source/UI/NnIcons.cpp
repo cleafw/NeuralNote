@@ -207,6 +207,28 @@ Path downloadStroked(Rectangle<float> inBounds)
     return fitted(std::move(p), inBounds);
 }
 
+Path dragStroked(Rectangle<float> inBounds)
+{
+    Path p;
+    p.startNewSubPath(8.0f, 2.0f);
+    p.lineTo(8.0f, 14.0f);
+    p.startNewSubPath(2.0f, 8.0f);
+    p.lineTo(14.0f, 8.0f);
+    p.startNewSubPath(5.5f, 4.5f);
+    p.lineTo(8.0f, 2.0f);
+    p.lineTo(10.5f, 4.5f);
+    p.startNewSubPath(5.5f, 11.5f);
+    p.lineTo(8.0f, 14.0f);
+    p.lineTo(10.5f, 11.5f);
+    p.startNewSubPath(4.5f, 5.5f);
+    p.lineTo(2.0f, 8.0f);
+    p.lineTo(4.5f, 10.5f);
+    p.startNewSubPath(11.5f, 5.5f);
+    p.lineTo(14.0f, 8.0f);
+    p.lineTo(11.5f, 10.5f);
+    return fitted(std::move(p), inBounds);
+}
+
 Path trashStroked(Rectangle<float> inBounds)
 {
     Path p;
