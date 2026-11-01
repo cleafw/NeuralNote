@@ -8,6 +8,7 @@
 #include <JuceHeader.h>
 
 #include "InstrumentMenu.h"
+#include "MidiExportController.h"
 #include "NnId.h"
 #include "PluginProcessor.h"
 #include "Sidebar.h"
@@ -43,6 +44,11 @@ public:
 
 private:
     void updateEnablements();
+    void showFileMenu();
+    juce::var hostAction(int action);
+    std::vector<int> allNotePrograms() const;
+    juce::TextButton mFileMenuButton, mOptionsMenuButton, mFullscreenButton;
+    MidiExportController mExporter;
 
     void valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property) override;
 

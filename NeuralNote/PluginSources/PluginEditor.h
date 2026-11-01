@@ -12,7 +12,7 @@
  * at. The factor lives in NnGlobalSettings; what a window applies is that factor clamped to the
  * display it opened on, and the clamped one is what is stored back.
  */
-class NeuralNoteEditor : public juce::AudioProcessorEditor
+class NeuralNoteEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
     explicit NeuralNoteEditor(NeuralNoteAudioProcessor&);
@@ -29,11 +29,14 @@ public:
 
     /** Sizes the window from inScale, clamped to the display, and persists what it settled on. */
     void applyScale(double inScale);
+    void refreshLanguage();
 
     /** The factor actually in force, which a scale too large for the display will not match. */
     double getAppliedScale() const { return mScale; }
 
 private:
+    void timerCallback() override;
+    bool mWasChinese = false;
     /** Sizes the window without persisting, for the paths that are not the user asking. */
     void _setScale(double inScale);
 

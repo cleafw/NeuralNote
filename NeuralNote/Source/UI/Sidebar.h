@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <set>
 
 #include <JuceHeader.h>
 
@@ -51,6 +52,10 @@ public:
 
     /** Lights the "+" while its menu is on screen. */
     void setMenuOpen(bool inIsOpen);
+    std::vector<int> getSelectedPrograms() const { return {mSelected.begin(), mSelected.end()}; }
+    std::function<void(std::vector<int>, bool)> onExportTracks;
+    void selectTrack(int program, const juce::ModifierKeys& modifiers);
+    bool keyPressed(const juce::KeyPress&) override;
 
 private:
     /** The scrollable list itself. Sized to its strips so the viewport can scroll it. */
@@ -59,6 +64,7 @@ private:
     public:
         void resized() override;
 
+        std::unique_ptr<InstrumentStrip> source;
         std::vector<std::unique_ptr<InstrumentStrip>> strips;
     };
 
@@ -80,6 +86,11 @@ private:
      */
     void _onVBlankCallback(double inTimestampSeconds);
 
+    void refreshSourceStrip();
+    void updateTrackSelection();
+    void trackClicked(int program, const juce::MouseEvent& e);
+    std::set<int> mSelected;
+    int mAnchor = -1;
     NeuralNoteAudioProcessor& mProcessor;
 
     juce::Viewport mViewport;

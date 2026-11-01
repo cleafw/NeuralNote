@@ -8,6 +8,7 @@
 #include "NnIcons.h"
 #include "NnLook.h"
 #include "PluginProcessor.h"
+#include "NnLocalisation.h"
 
 namespace
 {
@@ -54,7 +55,7 @@ StatusBar::StatusBar(NeuralNoteAudioProcessor& inProcessor)
     mZoomSlider.setColour(NnFlatSlider::trackColourId, nn::colours::zoomTrack);
     mZoomSlider.setColour(NnFlatSlider::fillColourId, nn::colours::zoomFill);
     mZoomSlider.setColour(NnFlatSlider::thumbColourId, nn::colours::zoomThumb);
-    mZoomSlider.setTooltip("Piano roll vertical zoom");
+    mZoomSlider.setTooltip(nn::tr("Piano roll vertical zoom"));
     mZoomSlider.setWantsKeyboardFocus(false);
     mZoomSlider.onValueChange = [this] {
         if (onVerticalZoomChange != nullptr) {
@@ -112,13 +113,13 @@ void StatusBar::paint(juce::Graphics& g)
     const InstrumentMixer* mixer = mProcessor.getInstrumentMixer();
     const auto num_instruments = static_cast<int>(mixer->getEntries().size());
 
-    juce::StringArray segments {juce::String(num_instruments) + (num_instruments == 1 ? " instrument" : " instruments"),
-                                juce::String(mixer->getTotalNoteCount()) + " notes"};
+    juce::StringArray segments {juce::String(num_instruments) + (num_instruments == 1 ? nn::tr(" instrument") : nn::tr(" instruments")),
+                                juce::String(mixer->getTotalNoteCount()) + nn::tr(" notes")};
 
     // The model that produced these notes, which need not be the one selected now.
     if (const auto model_size = mProcessor.getTranscriptionManager()->getTranscriptionModelSize();
         mProcessor.hasTranscription() && model_size.has_value()) {
-        segments.add(juce::String(modelSizeToDisplayName(*model_size)) + " model");
+        segments.add(nn::tr(modelSizeToDisplayName(*model_size)) + nn::tr(" model"));
     }
 
     // The range and the duration sit with the counts rather than at the far right, which the zoom

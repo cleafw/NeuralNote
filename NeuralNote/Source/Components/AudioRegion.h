@@ -37,6 +37,7 @@ public:
 
     /** Shows the load button only while there is nothing to draw a waveform from. */
     void updateEnablements();
+    void openAudioFile() { _openFileChooser(); }
 
 private:
     /**

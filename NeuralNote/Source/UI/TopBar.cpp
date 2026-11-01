@@ -10,6 +10,7 @@
 #include "NnFonts.h"
 #include "NnIcons.h"
 #include "NnLook.h"
+#include "NnLocalisation.h"
 #include "PluginProcessor.h"
 
 namespace
@@ -35,9 +36,9 @@ constexpr float LABEL_TRACKING = 0.08f;
 constexpr int MODEL_BUTTON_PADDING = 11;
 constexpr float MODEL_LABEL_TRACKING = 0.09f;
 
-juce::String modelButtonLabel(const char* inModelName)
+juce::String modelButtonLabel(const juce::String& inModelName)
 {
-    return ("Model: " + juce::String(inModelName)).toUpperCase();
+    return (nn::tr("Model: ") + inModelName).toUpperCase();
 }
 
 /** Sized for the longest label it can carry, so changing model does not move the bar around it. */
@@ -47,7 +48,7 @@ int modelButtonWidth()
 
     for (const ModelSize size: ALL_MODEL_SIZES) {
         widest = std::max(widest,
-                          nn::trackedTextWidth(modelButtonLabel(modelSizeToDisplayName(size)),
+                          nn::trackedTextWidth(modelButtonLabel(nn::tr(modelSizeToDisplayName(size))),
                                                nn::fonts::sectionHeader(),
                                                MODEL_LABEL_TRACKING));
     }
@@ -106,7 +107,7 @@ TopBar::TopBar(NeuralNoteAudioProcessor& inProcessor)
     mBackButton.setColour(NnFlatButton::iconColourId, nn::colours::textIcon);
     // onClick belongs to the main view: returning to the start also scrolls the timeline back,
     // which is not this component's to do.
-    add_transport(mBackButton, NeuralNoteTooltips::back);
+    add_transport(mBackButton, nn::tr(NeuralNoteTooltips::back));
 
     // One button showing whichever icon is the action available now: pause while it plays.
     mPlayPauseButton.setClickingTogglesState(true);
@@ -125,7 +126,7 @@ TopBar::TopBar(NeuralNoteAudioProcessor& inProcessor)
 
         syncTransportToggles();
     };
-    add_transport(mPlayPauseButton, NeuralNoteTooltips::play_pause);
+    add_transport(mPlayPauseButton, nn::tr(NeuralNoteTooltips::play_pause));
 
     mLoopButton.setClickingTogglesState(true);
     mLoopButton.setIcon(nn::icons::loopStroked, NnFlatButton::IconStyle::stroked, 16.0f);
@@ -133,7 +134,7 @@ TopBar::TopBar(NeuralNoteAudioProcessor& inProcessor)
     mLoopButton.setColour(NnFlatButton::iconColourId, nn::colours::textIcon);
     mLoopButton.setColour(NnFlatButton::iconOnColourId, nn::colours::accent);
     mLoopButton.setColour(NnFlatButton::backgroundOnColourId, nn::colours::accentFillActive());
-    add_transport(mLoopButton, NeuralNoteTooltips::loop);
+    add_transport(mLoopButton, nn::tr(NeuralNoteTooltips::loop));
 
     mFollowButton.setClickingTogglesState(true);
     mFollowButton.setIcon(nn::icons::followPlayheadStroked, NnFlatButton::IconStyle::stroked, 16.0f);
@@ -141,7 +142,7 @@ TopBar::TopBar(NeuralNoteAudioProcessor& inProcessor)
     mFollowButton.setColour(NnFlatButton::iconColourId, nn::colours::textIcon);
     mFollowButton.setColour(NnFlatButton::iconOnColourId, nn::colours::accent);
     mFollowButton.setColour(NnFlatButton::backgroundOnColourId, nn::colours::accentFillActive());
-    add_transport(mFollowButton, NeuralNoteTooltips::center);
+    add_transport(mFollowButton, nn::tr(NeuralNoteTooltips::center));
 
     mRecordButton.setClickingTogglesState(true);
     mRecordButton.setIcon(nn::icons::record, NnFlatButton::IconStyle::filled, 16.0f);
@@ -158,7 +159,7 @@ TopBar::TopBar(NeuralNoteAudioProcessor& inProcessor)
         updateEnablements();
     };
     mRecordButton.setToggleState(mProcessor.getState() == Recording, juce::dontSendNotification);
-    add_transport(mRecordButton, NeuralNoteTooltips::record);
+    add_transport(mRecordButton, nn::tr(NeuralNoteTooltips::record));
 
     addAndMakeVisible(mTimeDisplay);
 
@@ -168,21 +169,21 @@ TopBar::TopBar(NeuralNoteAudioProcessor& inProcessor)
     mModelButton.setColour(NnFlatButton::backgroundOnColourId, nn::colours::accentFillActive());
     mModelButton.setColour(NnFlatButton::textColourId, nn::colours::textButton);
     mModelButton.setColour(NnFlatButton::textOnColourId, nn::colours::accentText);
-    mModelButton.setTooltip(NeuralNoteTooltips::model);
+    mModelButton.setTooltip(nn::tr(NeuralNoteTooltips::model));
     mModelButton.setWantsKeyboardFocus(false);
     addAndMakeVisible(mModelButton);
     syncModelButton(false);
 
     mMixSlider.setColour(NnFlatSlider::trackColourId, nn::colours::faderTrackTop);
     mMixSlider.setColour(NnFlatSlider::fillColourId, nn::colours::mixSliderFill());
-    mMixSlider.setTooltip("Balance between the source audio and the synthesised transcription");
+    mMixSlider.setTooltip(nn::tr("Balance between the source audio and the synthesised transcription"));
     mMixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         mProcessor.getAPVTS(), ParameterHelpers::getIdStr(ParameterHelpers::MixId), mMixSlider);
-    addAndMakeVisible(mMixSlider);
+    addChildComponent(mMixSlider);
 
     mMasterGainSlider.setColour(NnFlatSlider::trackColourId, nn::colours::faderTrackTop);
     mMasterGainSlider.setColour(NnFlatSlider::fillColourId, nn::colours::volumeFill);
-    mMasterGainSlider.setTooltip("Output level");
+    mMasterGainSlider.setTooltip(nn::tr("Output level"));
     // The pill paints the dB readout, so it has to repaint with the fader.
     mMasterGainSlider.onValueChange = [this] { repaint(); };
     mMasterGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -191,7 +192,7 @@ TopBar::TopBar(NeuralNoteAudioProcessor& inProcessor)
 
     mMuteButton.setClickingTogglesState(true);
     mMuteButton.setIcon(nn::icons::speakerMuted, NnFlatButton::IconStyle::filled, 14.0f);
-    mMuteButton.setLabel("MUTE", nn::fonts::sectionHeader(), 0.09f);
+    mMuteButton.setLabel(nn::tr("MUTE"), nn::fonts::sectionHeader(), 0.09f);
     mMuteButton.setPadding(11, 11, 7);
     mMuteButton.setColour(NnFlatButton::backgroundColourId, nn::colours::bgControl);
     mMuteButton.setColour(NnFlatButton::backgroundOnColourId, nn::colours::muteFill());
@@ -199,7 +200,7 @@ TopBar::TopBar(NeuralNoteAudioProcessor& inProcessor)
     mMuteButton.setColour(NnFlatButton::iconOnColourId, nn::colours::warn);
     mMuteButton.setColour(NnFlatButton::textColourId, nn::colours::textIcon);
     mMuteButton.setColour(NnFlatButton::textOnColourId, nn::colours::warn);
-    mMuteButton.setTooltip(NeuralNoteTooltips::mute);
+    mMuteButton.setTooltip(nn::tr(NeuralNoteTooltips::mute));
     mMuteButton.setWantsKeyboardFocus(false);
     mMuteAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         mProcessor.getAPVTS(), ParameterHelpers::getIdStr(ParameterHelpers::MuteId), mMuteButton);
@@ -208,7 +209,7 @@ TopBar::TopBar(NeuralNoteAudioProcessor& inProcessor)
     mSettingsButton.setIcon(nn::icons::settingsStroked, NnFlatButton::IconStyle::stroked, 14.0f);
     mSettingsButton.setColour(NnFlatButton::backgroundColourId, nn::colours::bgControl);
     mSettingsButton.setColour(NnFlatButton::iconColourId, nn::colours::textIcon);
-    mSettingsButton.setTooltip(NeuralNoteTooltips::settings);
+    mSettingsButton.setTooltip(nn::tr(NeuralNoteTooltips::settings));
     mSettingsButton.setWantsKeyboardFocus(false);
     addAndMakeVisible(mSettingsButton);
 
@@ -223,18 +224,40 @@ void TopBar::resized()
     bounds.setLeft(nn::metrics::sidebarWidth - 1);
 
     const auto label_font = nn::fonts::pillLabel();
-    const int orig_width = juce::roundToInt(std::ceil(nn::trackedTextWidth("ORIG", label_font, LABEL_TRACKING)));
-    const int midi_width = juce::roundToInt(std::ceil(nn::trackedTextWidth("MIDI", label_font, LABEL_TRACKING)));
+    const int orig_width = juce::roundToInt(std::ceil(nn::trackedTextWidth(nn::tr("ORIG"), label_font, LABEL_TRACKING)));
+    const int midi_width = juce::roundToInt(std::ceil(nn::trackedTextWidth(nn::tr("MIDI"), label_font, LABEL_TRACKING)));
 
     const int transport_width = 5 * nn::metrics::transportButtonW + 4 * TRANSPORT_GAP;
     const int time_width = TimeDisplay::getIdealWidth();
     const int model_width = modelButtonWidth();
-    const int mix_width = 2 * PILL_PADDING + orig_width + PILL_GAP + MIX_TRACK_WIDTH + PILL_GAP + midi_width;
+    const int mix_width = 0;
     const int volume_width =
         2 * PILL_PADDING + SPEAKER_ICON_SIZE + PILL_GAP + VOLUME_TRACK_WIDTH + PILL_GAP + VOLUME_VALUE_WIDTH;
     const int mute_width = mMuteButton.getIdealWidth();
     const int levels_width = mix_width + nn::metrics::controlGap + volume_width + nn::metrics::controlGap + mute_width
                              + nn::metrics::controlGap + SETTINGS_WIDTH;
+
+    if (getWidth() < 1200) {
+        for (auto& x : mRuleXs) x = -1;
+        auto upper = bounds.removeFromTop(bounds.getHeight()/2);
+        auto lower = bounds;
+        auto takeCompact = [](juce::Rectangle<int>& row, int width, int height = nn::metrics::controlHeight) {
+            auto result = row.removeFromLeft(width).withSizeKeepingCentre(width,height); row.removeFromLeft(8); return result;
+        };
+        auto transport = takeCompact(upper, transport_width, nn::metrics::transportButtonH);
+        for (NnFlatButton* button : {&mBackButton,&mPlayPauseButton,&mLoopButton,&mFollowButton,&mRecordButton}) {
+            button->setBounds(transport.removeFromLeft(nn::metrics::transportButtonW)); transport.removeFromLeft(TRANSPORT_GAP);
+        }
+        mTimeDisplay.setBounds(takeCompact(upper,time_width));
+        mModelButton.setBounds(takeCompact(upper,model_width));
+        mMixPill=takeCompact(lower,mix_width);
+        mMixSlider.setBounds(mMixPill.getX()+PILL_PADDING+orig_width+PILL_GAP,mMixPill.getY(),MIX_TRACK_WIDTH,mMixPill.getHeight());
+        mVolumePill=takeCompact(lower,volume_width);
+        mMasterGainSlider.setBounds(mVolumePill.getX()+PILL_PADDING+SPEAKER_ICON_SIZE+PILL_GAP,mVolumePill.getY(),VOLUME_TRACK_WIDTH,mVolumePill.getHeight());
+        mMuteButton.setBounds(takeCompact(lower,mute_width));
+        mSettingsButton.setBounds(takeCompact(lower,SETTINGS_WIDTH));
+        return;
+    }
 
     // What the groups leave over is split evenly either side of the three 1 px rules, the rounding
     // remainder a pixel at a time, so both ends of the bar land exactly on their edges.
@@ -371,10 +394,10 @@ void TopBar::_paintMixPill(juce::Graphics& g, float inAlpha) const
     auto text_area = mMixPill.reduced(PILL_PADDING, 0).toFloat();
 
     g.setColour(nn::colours::textLabel.withMultipliedAlpha(inAlpha));
-    nn::drawTrackedText(g, "ORIG", font, text_area, juce::Justification::centredLeft, LABEL_TRACKING);
+    nn::drawTrackedText(g, nn::tr("ORIG"), font, text_area, juce::Justification::centredLeft, LABEL_TRACKING);
 
     g.setColour(nn::colours::accentText.withMultipliedAlpha(inAlpha));
-    nn::drawTrackedText(g, "MIDI", font, text_area, juce::Justification::centredRight, LABEL_TRACKING);
+    nn::drawTrackedText(g, nn::tr("MIDI"), font, text_area, juce::Justification::centredRight, LABEL_TRACKING);
 }
 
 void TopBar::_paintVolumePill(juce::Graphics& g, float inAlpha) const
@@ -424,7 +447,7 @@ void TopBar::_refreshMixAvailability()
 void TopBar::syncModelButton(bool inModelPanelVisible)
 {
     const std::optional<ModelSize> in_use = NNFileUtils::getInstalledModelSize(NnGlobalSettings::getModelSize());
-    const juce::String label = modelButtonLabel(in_use.has_value() ? modelSizeToDisplayName(*in_use) : "None");
+    const juce::String label = modelButtonLabel(in_use.has_value() ? nn::tr(modelSizeToDisplayName(*in_use)) : nn::tr("None"));
 
     if (label != mModelButtonLabel) {
         mModelButtonLabel = label;

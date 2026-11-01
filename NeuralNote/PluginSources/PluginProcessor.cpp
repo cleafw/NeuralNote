@@ -223,6 +223,8 @@ void NeuralNoteAudioProcessor::_updateValueTree(const ValueTree& inNewState)
         for (const auto& [prop_id, default_val]: NnId::OrderedStatePropertiesWithDefault) {
             if (inNewState.hasProperty(prop_id)) {
                 mValueTree.setProperty(prop_id, inNewState.getProperty(prop_id), nullptr);
+            } else if (prop_id == juce::Identifier("selectedTrackPrograms") || prop_id == juce::Identifier("activePreviewProgram")) {
+                mValueTree.setProperty(prop_id, default_val, nullptr);
             }
         }
 

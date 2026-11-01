@@ -3,6 +3,7 @@
 //
 
 #include "Keyboard.h"
+#include "NnLocalisation.h"
 
 #include "NnFonts.h"
 #include "NnLook.h"
@@ -27,6 +28,54 @@ Keyboard::Keyboard()
     // turned off: setScrollButtonsVisible(false) also pins the view to the bottom of the range,
     // which would take the scrolling with it.
     setScrollButtonWidth(1);
+    setTooltip(nn::tr("Hold a piano key to preview its pitch"));
+}
+
+Keyboard::~Keyboard() { stopTimer(); preview(-1); }
+void Keyboard::preview(int note)
+{
+    if (note == mPressedKey) return;
+    mPressedKey = note;
+    if (onPreviewKey) onPreviewKey(note);
+    repaint();
+}
+void Keyboard::mouseDown(const MouseEvent& e)
+{
+    if (!e.mods.isLeftButtonDown()) return;
+    preview(noteAtPosition(e.position));
+    startTimerHz(20);
+}
+void Keyboard::mouseDrag(const MouseEvent& e)
+{
+    if (e.mods.isLeftButtonDown()) preview(noteAtPosition(e.position));
+}
+int Keyboard::noteAtPosition(juce::Point<float> position) const
+{
+    // Mouse capture keeps delivering drags outside the component. Match our drawn
+    // key rectangles, black keys first, without desktop/window-occlusion queries.
+    if (!getLocalBounds().toFloat().contains(position)) return -1;
+    for (const bool black : {true, false})
+        for (int note = getRangeStart(); note <= getRangeEnd(); ++note)
+            if (juce::MidiMessage::isMidiNoteBlack(note) == black
+                && getRectangleForKey(note).contains(position)) return note;
+    return -1;
+}
+void Keyboard::mouseUp(const MouseEvent&) { stopTimer(); preview(-1); }
+void Keyboard::timerCallback()
+{
+    if (!ModifierKeys::getCurrentModifiersRealtime().isLeftButtonDown()
+        || !Process::isForegroundProcess()) {
+        stopTimer();
+        preview(-1);
+    }
+}
+void Keyboard::scrollByPixels(float pixels, const MouseEvent& event)
+{
+    MouseWheelDetails wheel;
+    wheel.deltaY = pixels * 12.0f / (7.0f * getKeyWidth() * getKeyWidth());
+    // The base handler preserves fractional-key scrolling.
+    KeyboardComponentBase::mouseWheelMove(event, wheel);
+    sendChangeMessage();
 }
 
 void Keyboard::setDisplayedRange(const PianoRollRange::DisplayRange& inRange)
@@ -108,7 +157,7 @@ void Keyboard::drawWhiteKey(int midiNoteNumber, Graphics& g, Rectangle<float> ar
 {
     // A 1 px gap along the bottom edge, which is what separates one key from the next: the design
     // has no key outlines, so the background showing through is the only divider.
-    g.setColour(_keyColour(nn::colours::keyWhite));
+    g.setColour(midiNoteNumber == mPressedKey ? nn::colours::accentText : _keyColour(nn::colours::keyWhite));
     g.fillRect(area.withTrimmedBottom(1.0f).withTrimmedRight(1.0f));
 
     if (midiNoteNumber % 12 == 0) {
@@ -126,7 +175,7 @@ void Keyboard::drawBlackKey(int midiNoteNumber, Graphics& g, Rectangle<float> ar
 {
     ignoreUnused(midiNoteNumber);
 
-    g.setColour(_keyColour(nn::colours::keyBlack));
+    g.setColour(midiNoteNumber == mPressedKey ? nn::colours::accentText : _keyColour(nn::colours::keyBlack));
     g.fillRect(area.withTrimmedBottom(1.0f));
 }
 

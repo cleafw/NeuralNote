@@ -7,6 +7,7 @@
 #include "SourceAudioManager.h"
 #include "PluginProcessor.h"
 #include "NnLogger.h"
+#include "NnLocalisation.h"
 
 SourceAudioManager::SourceAudioManager(NeuralNoteAudioProcessor* inProcessor)
     : mProcessor(inProcessor)
@@ -163,7 +164,7 @@ void SourceAudioManager::startRecording()
         mProcessor->clear();
         NnLogger::write(NnLogger::Level::Error, "SourceAudioManager: File creation for recording failed.");
         NativeMessageBox::showMessageBoxAsync(
-            MessageBoxIconType::NoIcon, "Error", "File creation for recording failed.");
+            MessageBoxIconType::NoIcon, nn::tr("Error"), nn::tr("File creation for recording failed."));
         return;
     }
 
@@ -249,7 +250,7 @@ void SourceAudioManager::stopRecording()
         mProcessor->clear();
         NnLogger::write(NnLogger::Level::Error, "SourceAudioManager: Could not load the recorded audio sample.");
         NativeMessageBox::showMessageBoxAsync(
-            MessageBoxIconType::NoIcon, "Could not load the recorded audio sample.", "");
+            MessageBoxIconType::NoIcon, nn::tr("Could not load the recorded audio sample."), "");
         return;
     }
 
@@ -262,7 +263,7 @@ void SourceAudioManager::stopRecording()
         mProcessor->clear();
         NnLogger::write(NnLogger::Level::Error, "SourceAudioManager: Could not load the recorded audio sample.");
         NativeMessageBox::showMessageBoxAsync(
-            MessageBoxIconType::NoIcon, "Could not load the recorded audio sample.", "");
+            MessageBoxIconType::NoIcon, nn::tr("Could not load the recorded audio sample."), "");
         return;
     }
 
@@ -299,8 +300,8 @@ bool SourceAudioManager::onFileDrop(const File& inFile)
                             "SourceAudioManager: Could not load the audio file (" + inFile.getFileExtension() + ").");
             NativeMessageBox::showMessageBoxAsync(
                 MessageBoxIconType::NoIcon,
-                "Could not load the audio file.",
-                "Check your file format (Accepted formats: .wav, .aiff, .flac, .mp3, .ogg).");
+                nn::tr("Could not load the audio file."),
+                nn::tr("Check your file format (Accepted formats: .wav, .aiff, .flac, .mp3, .ogg)."));
             return false;
         }
 

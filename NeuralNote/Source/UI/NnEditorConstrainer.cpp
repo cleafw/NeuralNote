@@ -10,7 +10,7 @@ void NnEditorConstrainer::configure(juce::Component* inEditor)
 {
     mEditor = inEditor;
 
-    setFixedAspectRatio((double) nn::metrics::editorWidth / (double) nn::metrics::editorHeight);
+    setFixedAspectRatio(0.0);
 
     setMinimumWidth(juce::roundToIntAccurate((double) nn::metrics::editorWidth * nn::metrics::minEditorScale));
     setMinimumHeight(juce::roundToIntAccurate((double) nn::metrics::editorHeight * nn::metrics::minEditorScale));
@@ -59,6 +59,7 @@ void NnEditorConstrainer::checkBounds(juce::Rectangle<int>& ioBounds,
                                       bool inIsStretchingBottom,
                                       bool inIsStretchingRight)
 {
+    if (mEditor && (bool)mEditor->getTopLevelComponent()->getProperties()["nnPresentationFullScreen"]) return;
     _applyMaximumSizeForCurrentDisplay();
 
     juce::ComponentBoundsConstrainer::checkBounds(ioBounds,
@@ -79,10 +80,8 @@ void NnEditorConstrainer::resizeEnd()
 
 void NnEditorConstrainer::_applyMaximumSizeForCurrentDisplay()
 {
-    // Fed as an aspect-consistent pair rather than two independently derived limits, so the base
-    // class's single-pass aspect correction cannot overshoot either one.
-    const double max_scale = juce::jmax(maxScaleForCurrentDisplay(), nn::metrics::minEditorScale);
-
-    setMaximumWidth(juce::roundToIntAccurate((double) nn::metrics::editorWidth * max_scale));
-    setMaximumHeight(juce::roundToIntAccurate((double) nn::metrics::editorHeight * max_scale));
+    auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(mEditor ? mEditor->getScreenBounds() : juce::Rectangle<int>(1280,800));
+    const auto area = display ? display->userBounds.toNearestInt() : juce::Rectangle<int>(1920,1080);
+    const int w = juce::jmax(320, area.getWidth()), h = juce::jmax(240, area.getHeight());
+    setSizeLimits(juce::jmin(w, juce::roundToInt(960 * mUiScale)), juce::jmin(h, juce::roundToInt(600 * mUiScale)), w, h);
 }

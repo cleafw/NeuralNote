@@ -5,6 +5,7 @@
 #include "PianoRoll.h"
 
 #include "NnLook.h"
+#include "NnLocalisation.h"
 
 namespace
 {
@@ -36,6 +37,7 @@ PianoRoll::PianoRoll(NeuralNoteAudioProcessor* inProcessor, Keyboard& keyboard, 
 
     mPlayhead.setDrawTriangle(false);
     addAndMakeVisible(mPlayhead);
+    setTooltip(nn::tr("Middle-drag to pan; left-click to move the playhead"));
 }
 
 PianoRoll::~PianoRoll()
@@ -191,7 +193,37 @@ void PianoRoll::changeListenerCallback(ChangeBroadcaster* source)
 
 void PianoRoll::mouseDown(const MouseEvent& event)
 {
-    mPlayhead.setPlayheadTime(_pixelToTime(static_cast<float>(event.x)));
+    if (event.mods.isMiddleButtonDown()) {
+        if (auto* viewport = findParentComponentOfClass<juce::Viewport>()) {
+            mPanning = true;
+            mLastPanPosition = event.getEventRelativeTo(viewport).position;
+            setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+            mKeyboard.setDisplayedRange({MIN_MIDI_NOTE, MAX_MIDI_NOTE});
+            // Manual navigation takes priority over the follow-playhead button.
+            mProcessor->getValueTree().setProperty(NnId::PlayheadCenteredId, false, nullptr);
+        }
+        return;
+    }
+    if (event.mods.isLeftButtonDown())
+        mPlayhead.setPlayheadTime(_pixelToTime(static_cast<float>(event.x)));
+}
+
+void PianoRoll::mouseDrag(const MouseEvent& event)
+{
+    if (!mPanning) return;
+    if (auto* viewport = findParentComponentOfClass<juce::Viewport>()) {
+        // Viewport coordinates stay fixed while the roll itself moves underneath the pointer.
+        const auto position = event.getEventRelativeTo(viewport).position;
+        const auto delta = position - mLastPanPosition;
+        mLastPanPosition = position;
+        viewport->setViewPosition(viewport->getViewPositionX() - juce::roundToInt(delta.x), 0);
+        mKeyboard.scrollByPixels(delta.y, event);
+    }
+}
+void PianoRoll::mouseUp(const MouseEvent&)
+{
+    mPanning = false;
+    setMouseCursor(juce::MouseCursor::NormalCursor);
 }
 
 void PianoRoll::_onVBlankCallback()

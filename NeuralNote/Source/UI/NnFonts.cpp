@@ -84,12 +84,14 @@ namespace
 
 juce::Font sans(float inSizePx, int inWeight)
 {
-    return juce::Font(juce::FontOptions(sansFace(inWeight))).withPointHeight(inSizePx);
+    return juce::Font(juce::FontOptions(sansFace(inWeight)).withFallbacks(
+        {"Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC"})).withPointHeight(inSizePx);
 }
 
 juce::Font mono(float inSizePx, int inWeight)
 {
-    return juce::Font(juce::FontOptions(monoFace(inWeight))).withPointHeight(inSizePx);
+    return juce::Font(juce::FontOptions(monoFace(inWeight)).withFallbacks(
+        {"Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC"})).withPointHeight(inSizePx);
 }
 
 // A macro would hide what these are; each is one cached Font, and the comment in the header says

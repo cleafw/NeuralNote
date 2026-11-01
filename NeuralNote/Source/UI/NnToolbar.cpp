@@ -11,6 +11,7 @@
 #include "NnLogger.h"
 #include "NnLook.h"
 #include "PluginProcessor.h"
+#include "NnLocalisation.h"
 
 namespace
 {
@@ -45,7 +46,7 @@ NnToolbar::NnToolbar(NeuralNoteAudioProcessor& inProcessor)
 
     mTempoEditor = std::make_unique<NumericTextEditor<double>>(
         &mProcessor, NnId::ExportTempoId, 6, 120.0, juce::Justification::centredLeft, tempo_is_valid, correct_tempo);
-    mTempoEditor->setTooltip(NeuralNoteTooltips::export_tempo);
+    mTempoEditor->setTooltip(nn::tr(NeuralNoteTooltips::export_tempo));
 
     // TextEditor only centres vertically when the line fits below its top indent, so the indent goes
     // and the editor takes the pill's full height.
@@ -53,12 +54,12 @@ NnToolbar::NnToolbar(NeuralNoteAudioProcessor& inProcessor)
     addAndMakeVisible(*mTempoEditor);
 
     mExportButton.setIcon(nn::icons::folderStroked, NnFlatButton::IconStyle::stroked, 13.0f);
-    mExportButton.setLabel("Export MIDI out", nn::fonts::buttonLabel());
+    mExportButton.setLabel(nn::tr("Export MIDI out"), nn::fonts::buttonLabel());
     mExportButton.setPadding(12, 12, 7);
     mExportButton.setColour(NnFlatButton::backgroundColourId, nn::colours::bgControlAlt);
     mExportButton.setColour(NnFlatButton::iconColourId, nn::colours::textIconSoft);
     mExportButton.setColour(NnFlatButton::textColourId, nn::colours::textButton);
-    mExportButton.setTooltip("Write the transcribed MIDI to a file");
+    mExportButton.setTooltip(nn::tr("Write the transcribed MIDI to a file"));
     mExportButton.setWantsKeyboardFocus(false);
     mExportButton.onClick = [this] { _exportMidiFile(); };
     addAndMakeVisible(mExportButton);
@@ -69,7 +70,7 @@ NnToolbar::NnToolbar(NeuralNoteAudioProcessor& inProcessor)
     mClearButton.setIcon(nn::icons::trashStroked, NnFlatButton::IconStyle::stroked, 13.0f);
     mClearButton.setColour(NnFlatButton::backgroundColourId, nn::colours::bgControlAlt);
     mClearButton.setColour(NnFlatButton::iconColourId, nn::colours::textIconSoft);
-    mClearButton.setTooltip(NeuralNoteTooltips::clear);
+    mClearButton.setTooltip(nn::tr(NeuralNoteTooltips::clear));
     mClearButton.setWantsKeyboardFocus(false);
     mClearButton.onClick = [this] { _clearOneStep(); };
     addAndMakeVisible(mClearButton);
@@ -93,7 +94,7 @@ void NnToolbar::resized()
     place_right(mExportButton, mExportButton.getIdealWidth());
 
     const int label_width =
-        juce::roundToInt(std::ceil(nn::trackedTextWidth("EXPORT TEMPO", nn::fonts::pillLabel(), LABEL_TRACKING)));
+        juce::roundToInt(std::ceil(nn::trackedTextWidth(nn::tr("EXPORT TEMPO"), nn::fonts::pillLabel(), LABEL_TRACKING)));
     const int tempo_width = 2 * PILL_PADDING + label_width + PILL_GAP + TEMPO_VALUE_WIDTH + PILL_GAP + SPINNER_WIDTH;
 
     mTempoPill = bounds.removeFromRight(tempo_width).withSizeKeepingCentre(tempo_width, button_height);
@@ -147,7 +148,7 @@ void NnToolbar::_exportMidiFile()
         NNFileUtils::getMidiExportFileName(mProcessor.getSourceAudioManager()->getDroppedFilename());
 
     mFileChooser = std::make_shared<juce::FileChooser>(
-        "Export MIDI", NNFileUtils::getDefaultMidiExportDirectory().getChildFile(filename), "*.mid");
+        nn::tr("Export MIDI"), NNFileUtils::getDefaultMidiExportDirectory().getChildFile(filename), "*.mid");
 
     mFileChooser->launchAsync(
         juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting,
@@ -173,7 +174,7 @@ void NnToolbar::_exportMidiFile()
             if (!success) {
                 NnLogger::write(NnLogger::Level::Error, "NnToolbar: Could not write the MIDI file.");
                 juce::NativeMessageBox::showMessageBoxAsync(
-                    juce::MessageBoxIconType::NoIcon, "Error", "Could not write the MIDI file.");
+                    juce::MessageBoxIconType::NoIcon, nn::tr("Error"), nn::tr("Could not write the MIDI file."));
             }
         });
 }
@@ -220,7 +221,7 @@ void NnToolbar::_paintTempoPill(juce::Graphics& g) const
 
     g.setColour(nn::colours::textDim.withMultipliedAlpha(alpha));
     nn::drawTrackedText(
-        g, "EXPORT TEMPO", nn::fonts::pillLabel(), content.toFloat(), juce::Justification::centredLeft, LABEL_TRACKING);
+        g, nn::tr("EXPORT TEMPO"), nn::fonts::pillLabel(), content.toFloat(), juce::Justification::centredLeft, LABEL_TRACKING);
 
     // Stacked triangles rather than a spinner control: the value is typed, and these say the field
     // is a number without pretending to be a second way of setting it.

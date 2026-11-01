@@ -7,6 +7,7 @@
 #include "NnFonts.h"
 #include "NnIcons.h"
 #include "NnLook.h"
+#include "NnLocalisation.h"
 
 namespace
 {
@@ -40,7 +41,7 @@ bool isNewerVersion(const juce::String& inCandidate, const juce::String& inCurre
 
 UpdateCheck::UpdateCheck()
 {
-    mSeeUpdateButton.setLabel("See update", nn::fonts::buttonLabel());
+    mSeeUpdateButton.setLabel(nn::tr("See update"), nn::fonts::buttonLabel());
     mSeeUpdateButton.setPadding(12, 12, 0);
 
     // Accent-outlined, like Drag MIDI out: it is the one thing this notification is asking for.
@@ -55,7 +56,7 @@ UpdateCheck::UpdateCheck()
     // second timer is generous, and there is no reason to wait it out.
     mDismissButton.setIcon(nn::icons::crossStroked, NnFlatButton::IconStyle::stroked, nn::metrics::cancelGlyphSize);
     mDismissButton.setCornerRadius(4.0f);
-    mDismissButton.setTooltip("Dismiss");
+    mDismissButton.setTooltip(nn::tr("Dismiss"));
     mDismissButton.setWantsKeyboardFocus(false);
     mDismissButton.onClick = [this] { _hideNotification(); };
     addAndMakeVisible(mDismissButton);
@@ -63,8 +64,8 @@ UpdateCheck::UpdateCheck()
 
 juce::String UpdateCheck::_message() const
 {
-    return mUpdateAvailable ? "A new version of NeuralNote is available"
-                            : "You are on the latest version of NeuralNote";
+    return mUpdateAvailable ? nn::tr("A new version of NeuralNote is available")
+                            : nn::tr("You are on the latest version of NeuralNote");
 }
 
 juce::Rectangle<int> UpdateCheck::_panelBounds() const

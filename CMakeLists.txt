@@ -3,6 +3,9 @@ project(NeuralNotePlugin VERSION 2.1.0)
 
 # C++ settings
 set(CMAKE_CXX_STANDARD 23)
+if (MSVC)
+  set_source_files_properties(Lib/Utils/NnLocalisation.cpp PROPERTIES COMPILE_OPTIONS "/utf-8")
+endif ()
 enable_language(CXX)
 
 # stb_vorbis is C and does not compile as C++.
@@ -32,6 +35,7 @@ option(NEURALNOTE_FETCH_SOUNDFONT "Download the soundfont at configure time if i
 option(NEURALNOTE_ASIO "Enable ASIO devices on Windows (distributing it needs a Steinberg ASIO license agreement)" ON)
 
 option(NEURALNOTE_SYMBOLS "Build Release with debug info, to read crash reports with" ON)
+option(NEURALNOTE_REQUIRE_GPU "Require the Vulkan backend for this Windows custom build" ${WIN32})
 
 #static linking in Windows
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -61,6 +65,12 @@ if (NEURALNOTE_SYMBOLS)
   endif ()
 endif ()
 
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/Tools/patch_juce_localisation.py"
+                RESULT_VARIABLE nn_translation_patch_result)
+if (NOT nn_translation_patch_result EQUAL 0)
+  message(FATAL_ERROR "JUCE localisation patch failed; review Tools/patch_juce_localisation.py")
+endif ()
 add_subdirectory(ThirdParty/JUCE)
 add_subdirectory(ThirdParty/TinySoundFont)
 add_subdirectory(ThirdParty/minimp3)
@@ -94,6 +104,9 @@ endif ()
 # pulling its Catch2/nlohmann_json test dependencies into this build.
 set(BUILD_TESTING OFF)
 add_subdirectory(ThirdParty/muscriptor.cpp/cpp muscriptor)
+if (WIN32 AND NEURALNOTE_REQUIRE_GPU AND NOT TARGET ggml-vulkan)
+  message(FATAL_ERROR "This custom Windows build requires Vulkan GPU support. Use Tools/build-windows-gpu.ps1; do not silently ship a CPU-only build.")
+endif ()
 
 # muscriptor.cpp (and the ggml it fetches) can't follow a single-config
 # generator's global CMAKE_BUILD_TYPE selectively, so force it to optimized
@@ -254,6 +267,27 @@ if (BUILD_UNIT_TESTS)
   add_subdirectory(Tests)
 endif ()
 
+option(NEURALNOTE_LOCALISATION_TESTS "Build isolated language tests" OFF)
+if (NEURALNOTE_LOCALISATION_TESTS)
+  juce_add_console_app(LocalisationTests PRODUCT_NAME "Localisation Tests")
+  juce_generate_juce_header(LocalisationTests)
+  target_sources(LocalisationTests PRIVATE Tests/LocalisationTests.cpp Lib/Utils/NnLocalisation.cpp)
+  target_include_directories(LocalisationTests PRIVATE Lib/Utils Lib/Model)
+  target_link_libraries(LocalisationTests PRIVATE juce::juce_core)
+  target_compile_definitions(LocalisationTests PRIVATE JUCE_USE_CURL=0)
+  if (MSVC)
+    target_compile_options(LocalisationTests PRIVATE /utf-8)
+  endif ()
+endif ()
+
 if (WIN32 AND NEURALNOTE_ASIO)
   target_compile_definitions(${BaseTargetName} PUBLIC JUCE_ASIO=1)
+endif ()
+
+option(NEURALNOTE_INTERACTION_TESTS "Build piano interaction and audio regression tests" OFF)
+if (NEURALNOTE_INTERACTION_TESTS)
+  juce_add_console_app(InteractionTests PRODUCT_NAME "Interaction Tests")
+  target_sources(InteractionTests PRIVATE Tests/InteractionTests.cpp)
+  target_include_directories(InteractionTests PRIVATE $<TARGET_PROPERTY:NeuralNote,INCLUDE_DIRECTORIES>)
+  target_link_libraries(InteractionTests PRIVATE NeuralNote)
 endif ()

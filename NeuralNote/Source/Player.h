@@ -36,6 +36,11 @@ public:
 
     /** Drops the transcription's playback state as well as rewinding. For the clear paths. */
     void reset();
+    /** Message thread: isolated piano audition, -1 releases the held key. */
+    void previewKey(int note);
+    void setSourceMix(float gainDb, float pan, bool enabled);
+    float getSourceMeterMeanSquare() const { return mSourceMeanSquare.load(); }
+    void refreshPreviewInstrument() { previewKey(mPreviewKey.load()); }
 
     /**
      * Sets the new playhead position (in seconds).
@@ -75,6 +80,11 @@ private:
 
     std::unique_ptr<SynthController> mSynthController;
     std::unique_ptr<InstrumentSynth> mSynth;
+    std::unique_ptr<InstrumentSynth> mPreviewSynth;
+    std::atomic<int> mPreviewKey {-1};
+    std::atomic<int> mPreviewProgram {0};
+    int mSoundingPreviewProgram = 0;
+    int mSoundingPreviewKey = -1; // audio thread only
 
     AudioBuffer<float> mInternalBuffer;
 
@@ -85,6 +95,9 @@ private:
     double mPlayheadTime = 0;
     double mSampleRate = 44100;
 
+    std::atomic<float> mSourceGainDb {0.0f}, mSourcePan {0.0f}, mSourceMeanSquare {0.0f};
+    std::atomic<bool> mSourceEnabled {true};
+    float mCurrentSourcePan = 0;
     float mGainSourceAudio = 0;
     float mGainSynth = 0;
     float mMasterGain = 1;

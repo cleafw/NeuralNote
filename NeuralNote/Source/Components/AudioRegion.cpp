@@ -10,6 +10,7 @@
 #include "NnIcons.h"
 #include "NnLook.h"
 #include "WaveformBars.h"
+#include "NnLocalisation.h"
 
 namespace
 {
@@ -32,14 +33,14 @@ AudioRegion::AudioRegion(NeuralNoteAudioProcessor* processor, double inBaseNumPi
     addAndMakeVisible(mPlayhead);
 
     mLoadButton.setIcon(nn::icons::folderStroked, NnFlatButton::IconStyle::stroked, 14.0f);
-    mLoadButton.setLabel("Load audio file", nn::fonts::buttonLabel());
+    mLoadButton.setLabel(nn::tr("Load audio file"), nn::fonts::buttonLabel());
     mLoadButton.setPadding(nn::metrics::loadPadX, nn::metrics::loadPadX, nn::metrics::loadGap);
     mLoadButton.setCornerRadius(nn::metrics::controlCorner);
     mLoadButton.setColour(NnFlatButton::backgroundColourId, nn::colours::accentFillButton());
     mLoadButton.setColour(NnFlatButton::outlineColourId, nn::colours::ctaBorder);
     mLoadButton.setColour(NnFlatButton::iconColourId, nn::colours::ctaText);
     mLoadButton.setColour(NnFlatButton::textColourId, nn::colours::ctaText);
-    mLoadButton.setTooltip(NeuralNoteTooltips::load_audio);
+    mLoadButton.setTooltip(nn::tr(NeuralNoteTooltips::load_audio));
     mLoadButton.onClick = [this] { _openFileChooser(); };
     addChildComponent(mLoadButton);
 
@@ -93,7 +94,7 @@ void AudioRegion::paint(Graphics& g)
 
     g.setColour(nn::colours::textScale);
     nn::drawTrackedText(g,
-                        "MIX WAVEFORM",
+                        nn::tr("MIX WAVEFORM"),
                         nn::fonts::meta(),
                         juce::Rectangle<float>(CORNER_LABEL_INSET, CORNER_LABEL_INSET, 200.0f, 12.0f),
                         juce::Justification::topLeft,
@@ -187,7 +188,7 @@ void AudioRegion::_paintDropZone(Graphics& g) const
 
     g.setColour(nn::colours::textScale);
     nn::drawTrackedText(
-        g, "OR DROP A FILE HERE", nn::fonts::meta(), hint.toFloat(), juce::Justification::centred, DROP_HINT_TRACKING);
+        g, nn::tr("OR DROP A FILE HERE"), nn::fonts::meta(), hint.toFloat(), juce::Justification::centred, DROP_HINT_TRACKING);
 }
 
 void AudioRegion::_openFileChooser()
@@ -201,7 +202,7 @@ void AudioRegion::_openFileChooser()
     }
 
     mFileChooser = std::make_shared<juce::FileChooser>(
-        "Select Audio File", juce::File {}, patterns.joinIntoString(";"), true, false, this);
+        nn::tr("Select Audio File"), juce::File {}, patterns.joinIntoString(";"), true, false, this);
 
     mFileChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                               [this](const juce::FileChooser& fc) {

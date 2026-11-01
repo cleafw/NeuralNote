@@ -11,6 +11,7 @@
 #include "NNFileUtils.h"
 #include "NnFonts.h"
 #include "NnGlobalSettings.h"
+#include "NnLocalisation.h"
 #include "NnLogger.h"
 #include "NnLook.h"
 #include "PluginEditor.h"
@@ -22,7 +23,8 @@ constexpr int UPDATE_NOTIFICATION_GAP = 10;
 } // namespace
 
 NeuralNoteMainView::NeuralNoteMainView(NeuralNoteAudioProcessor& processor)
-    : mProcessor(processor)
+    : mExporter(processor)
+    , mProcessor(processor)
     , mTopBar(processor)
     , mSidebar(processor)
     , mVisualizationPanel(&processor)
@@ -31,7 +33,22 @@ NeuralNoteMainView::NeuralNoteMainView(NeuralNoteAudioProcessor& processor)
     mProcessor.addListenerToStateValueTree(this);
     jassert(mProcessor.getValueTree().hasProperty(NnId::PlayheadCenteredId));
 
+    const bool standalone = juce::JUCEApplicationBase::isStandaloneApp();
+    mFileMenuButton.setButtonText(nn::tr("File"));
+    mOptionsMenuButton.setButtonText(nn::tr("Options"));
+    addAndMakeVisible(mFileMenuButton);
+    addAndMakeVisible(mOptionsMenuButton);
+    mFileMenuButton.setVisible(standalone);
+    mOptionsMenuButton.setVisible(standalone);
+    mFullscreenButton.setButtonText(nn::tr("Full screen (F11)"));
+    addAndMakeVisible(mFullscreenButton);
+    mFullscreenButton.setVisible(standalone);
+    mFullscreenButton.onClick = [this] { hostAction(6); };
+    mFileMenuButton.onClick = [this] { showFileMenu(); };
+    mOptionsMenuButton.onClick = [this] { _buildSettingsMenu(); mSettingsMenu->showMenuAsync(PopupMenu::Options().withTargetComponent(&mOptionsMenuButton)); };
+    mSidebar.onExportTracks = [this](std::vector<int> programs, bool separate) { mExporter.start(programs, separate); };
     addAndMakeVisible(mTopBar);
+    mTopBar.getSettingsButton().setVisible(!standalone);
     addAndMakeVisible(mSidebar);
     addAndMakeVisible(mVisualizationPanel);
 
@@ -92,8 +109,14 @@ NeuralNoteMainView::~NeuralNoteMainView()
 void NeuralNoteMainView::resized()
 {
     auto bounds = getLocalBounds();
+    if (juce::JUCEApplicationBase::isStandaloneApp()) {
+        auto menu = bounds.removeFromTop(28);
+        mFileMenuButton.setBounds(menu.removeFromLeft(72));
+        mOptionsMenuButton.setBounds(menu.removeFromLeft(72));
+        mFullscreenButton.setBounds(menu.removeFromRight(150));
+    }
 
-    mTopBar.setBounds(bounds.removeFromTop(nn::metrics::topBarHeight));
+    mTopBar.setBounds(bounds.removeFromTop(nn::metrics::topBarHeight * (getWidth() < 1200 ? 2 : 1)));
     mSidebar.setBounds(bounds.removeFromLeft(nn::metrics::sidebarWidth));
     mVisualizationPanel.setBounds(bounds);
 
@@ -132,6 +155,8 @@ void NeuralNoteMainView::paint(Graphics& g)
 
 void NeuralNoteMainView::timerCallback()
 {
+    if (juce::JUCEApplicationBase::isStandaloneApp())
+        mFullscreenButton.setButtonText((bool)hostAction(7) ? nn::tr("Exit full screen (F11)") : nn::tr("Full screen (F11)"));
     mTopBar.syncTransportToggles();
 
     // The model panel changes what the button shows -- its cross, its selection -- without telling it.
@@ -160,6 +185,10 @@ void NeuralNoteMainView::clear()
 
 bool NeuralNoteMainView::keyPressed(const KeyPress& key)
 {
+    if (juce::JUCEApplicationBase::isStandaloneApp()) {
+        if (key == KeyPress::F11Key) { hostAction(6); return true; }
+        if (key == KeyPress::escapeKey && (bool)hostAction(7)) { hostAction(8); return true; }
+    }
     if (key == KeyPress(KeyPress::spaceKey, ModifierKeys::shiftModifier, 0)) {
         mTopBar.getBackButton().triggerClick();
         return true;
@@ -235,10 +264,48 @@ void NeuralNoteMainView::_buildSettingsMenu()
     mSettingsMenuItemsShouldBeEnabled.clear();
 
     int item_id = 0;
+    if (juce::JUCEApplicationBase::isStandaloneApp()) {
+        mSettingsMenu->addItem(nn::tr("Full screen (F11)"), true, (bool)hostAction(7), [this] { hostAction(6); });
+        mSettingsMenu->addItem(nn::tr("Audio/MIDI Settings..."), [this] { hostAction(1); });
+        mSettingsMenu->addItem(nn::tr("Mute audio input"), true, (bool)hostAction(0), [this] { hostAction(5); });
+        mSettingsMenu->addItem(nn::tr("Reset to default state"), [this] {
+            const Component::SafePointer<NeuralNoteMainView> safe(this);
+            juce::AlertWindow::showAsync(juce::MessageBoxOptions().withTitle(nn::tr("Reset to default state"))
+                .withMessage(nn::tr("Reset the current session? Save or export your work first."))
+                .withButton(nn::tr("Reset")).withButton(nn::tr("Cancel")), [safe](int result) {
+                    if (safe && result == 1) safe->hostAction(4);
+                });
+        });
+        mSettingsMenu->addSeparator();
+    }
+
+    PopupMenu language_menu;
+    for (const auto& [code, label] : {
+             std::pair {"system", "Follow system"},
+             std::pair {"en", "English"},
+             std::pair {"zh-CN", "Simplified Chinese"}}) {
+        auto item = PopupMenu::Item(nn::tr(label));
+        item.setID(++item_id);
+        item.setTicked(NnGlobalSettings::getLanguage() == code);
+        mSettingsMenuItemsShouldBeTicked.emplace_back(item.itemID, [language = String(code)] {
+            return NnGlobalSettings::getLanguage() == language;
+        });
+        item.setAction([this, language = String(code)] {
+            NnGlobalSettings::setLanguage(language);
+            nn::applyLanguage();
+            const Component::SafePointer<NeuralNoteEditor> editor(findParentComponentOfClass<NeuralNoteEditor>());
+            MessageManager::callAsync([editor] {
+                if (editor != nullptr) editor->refreshLanguage();
+            });
+        });
+        language_menu.addItem(item);
+    }
+    mSettingsMenu->addSubMenu(nn::tr("Language"), language_menu);
+    mSettingsMenu->addSeparator();
 
     // Applies from the next transcription: the model is loaded per run.
     PopupMenu device_menu;
-    String device_menu_name = "Compute device";
+    String device_menu_name = nn::tr("Compute device");
 
     if (const std::vector<msl::Device>* devices = ComputeDevices::tryGet()) {
         const auto is_selected = [devices](std::optional<std::size_t> inIndex) {
@@ -260,7 +327,7 @@ void NeuralNoteMainView::_buildSettingsMenu()
                 device_menu.addItem(device_item);
             };
 
-        const String auto_label = "Auto (" + String(ComputeDevices::label(*devices, msl::autoDevice(*devices))) + ")";
+        const String auto_label = nn::tr("Auto (") + String(ComputeDevices::label(*devices, msl::autoDevice(*devices))) + ")";
         const auto selected = ComputeDevices::resolve(*devices, NnGlobalSettings::getComputeDevice());
         device_menu_name +=
             ": " + (selected.has_value() ? String(ComputeDevices::label(*devices, *selected)) : auto_label);
@@ -274,7 +341,7 @@ void NeuralNoteMainView::_buildSettingsMenu()
     }
 
     else {
-        auto detecting_item = PopupMenu::Item("Detecting devices...");
+        auto detecting_item = PopupMenu::Item(nn::tr("Detecting devices..."));
         detecting_item.setID(++item_id);
         detecting_item.setEnabled(false);
         mSettingsMenuItemsShouldBeEnabled.emplace_back(detecting_item.itemID, [] { return false; });
@@ -284,7 +351,7 @@ void NeuralNoteMainView::_buildSettingsMenu()
     mSettingsMenu->addSubMenu(device_menu_name, device_menu);
     mSettingsMenu->addSeparator();
 
-    auto tooltip_visibility_item = PopupMenu::Item("Show tooltips");
+    auto tooltip_visibility_item = PopupMenu::Item(nn::tr("Show tooltips"));
     tooltip_visibility_item.setID(++item_id);
     tooltip_visibility_item.setEnabled(true);
     mSettingsMenuItemsShouldBeTicked.emplace_back(tooltip_visibility_item.itemID,
@@ -321,9 +388,9 @@ void NeuralNoteMainView::_buildSettingsMenu()
         scale_menu.addItem(scale_item);
     }
 
-    mSettingsMenu->addSubMenu("Window size", scale_menu);
+    mSettingsMenu->addSubMenu(nn::tr("Interface scale"), scale_menu);
 
-    auto reset_zoom_item = PopupMenu::Item("Reset piano roll zoom");
+    auto reset_zoom_item = PopupMenu::Item(nn::tr("Reset piano roll zoom"));
     reset_zoom_item.setID(++item_id);
     reset_zoom_item.setTicked(false);
     reset_zoom_item.setAction([this] {
@@ -342,7 +409,7 @@ void NeuralNoteMainView::_buildSettingsMenu()
     for (const auto& [mode, label]:
          {std::pair {MidiOverflowMode::ReuseChannels, "Reuse the last channels"},
           std::pair {MidiOverflowMode::DropExtraInstruments, "Drop the extra instruments"}}) {
-        auto overflow_item = PopupMenu::Item(label);
+        auto overflow_item = PopupMenu::Item(nn::tr(label));
         overflow_item.setID(++item_id);
         overflow_item.setEnabled(true);
         mSettingsMenuItemsShouldBeTicked.emplace_back(overflow_item.itemID, [this, item_mode = mode] {
@@ -358,14 +425,14 @@ void NeuralNoteMainView::_buildSettingsMenu()
         overflow_menu.addItem(overflow_item);
     }
 
-    mSettingsMenu->addSubMenu("MIDI export on channel overflow", overflow_menu);
+    mSettingsMenu->addSubMenu(nn::tr("MIDI export on channel overflow"), overflow_menu);
 
 #if JUCE_WINDOWS
     mSettingsMenu->addSeparator();
 
     PopupMenu crash_menu;
 
-    auto crash_reports_item = PopupMenu::Item("Enable crash reports");
+    auto crash_reports_item = PopupMenu::Item(nn::tr("Enable crash reports"));
     crash_reports_item.setID(++item_id);
     crash_reports_item.setEnabled(true);
     mSettingsMenuItemsShouldBeTicked.emplace_back(crash_reports_item.itemID,
@@ -378,13 +445,13 @@ void NeuralNoteMainView::_buildSettingsMenu()
     });
     crash_menu.addItem(crash_reports_item);
 
-    auto open_crash_reports_item = PopupMenu::Item("Open crash reports folder");
+    auto open_crash_reports_item = PopupMenu::Item(nn::tr("Open crash reports folder"));
     open_crash_reports_item.setID(++item_id);
     open_crash_reports_item.setEnabled(true);
     open_crash_reports_item.setAction([] { NNFileUtils::openDirectory(NNFileUtils::getCrashReportsDirectory()); });
     crash_menu.addItem(open_crash_reports_item);
 
-    mSettingsMenu->addSubMenu("Crash reports", crash_menu);
+    mSettingsMenu->addSubMenu(nn::tr("Crash reports"), crash_menu);
 #endif
 
     mSettingsMenu->addSeparator();
@@ -396,7 +463,7 @@ void NeuralNoteMainView::_buildSettingsMenu()
                                       std::pair {NnLogger::Level::Info, "Info"},
                                       std::pair {NnLogger::Level::Warning, "Warning"},
                                       std::pair {NnLogger::Level::Error, "Error"}}) {
-        auto level_item = PopupMenu::Item(label);
+        auto level_item = PopupMenu::Item(nn::tr(label));
         level_item.setID(++item_id);
         level_item.setEnabled(true);
         mSettingsMenuItemsShouldBeTicked.emplace_back(
@@ -410,17 +477,17 @@ void NeuralNoteMainView::_buildSettingsMenu()
         log_level_menu.addItem(level_item);
     }
 
-    logs_menu.addSubMenu("Log level", log_level_menu);
+    logs_menu.addSubMenu(nn::tr("Log level"), log_level_menu);
 
-    auto open_logs_item = PopupMenu::Item("Open logs folder");
+    auto open_logs_item = PopupMenu::Item(nn::tr("Open logs folder"));
     open_logs_item.setID(++item_id);
     open_logs_item.setEnabled(true);
     open_logs_item.setAction([] { NNFileUtils::openDirectory(NNFileUtils::getLogsDirectory()); });
     logs_menu.addItem(open_logs_item);
 
-    mSettingsMenu->addSubMenu("Logs", logs_menu);
+    mSettingsMenu->addSubMenu(nn::tr("Logs"), logs_menu);
 
-    auto check_updates_item = PopupMenu::Item("Check for updates");
+    auto check_updates_item = PopupMenu::Item(nn::tr("Check for updates"));
     check_updates_item.setID(++item_id);
     check_updates_item.setEnabled(true);
     check_updates_item.setTicked(false);
@@ -460,4 +527,37 @@ void NeuralNoteMainView::_updateTooltipVisibility()
     } else {
         mTooltipWindow = nullptr;
     }
+}
+
+juce::var NeuralNoteMainView::hostAction(int action)
+{
+    auto* editor = findParentComponentOfClass<NeuralNoteEditor>();
+    if (!editor) return {};
+    auto function = editor->getProperties()["nnHostAction"].getNativeFunction();
+    const juce::var argument(action);
+    return function ? function(juce::var::NativeFunctionArgs(juce::var(), &argument, 1)) : juce::var();
+}
+std::vector<int> NeuralNoteMainView::allNotePrograms() const
+{
+    std::vector<int> programs;
+    for (const auto& entry : mProcessor.getInstrumentMixer()->getEntries()) if (entry.hasNotes()) programs.push_back(entry.program);
+    return programs;
+}
+void NeuralNoteMainView::showFileMenu()
+{
+    PopupMenu menu;
+    const bool idle = mProcessor.getState() != Processing && mProcessor.getState() != Recording;
+    menu.addItem(nn::tr("Open audio..."), idle, false, [this] { mVisualizationPanel.getCombinedAudioMidiRegion().getAudioRegion()->openAudioFile(); });
+    menu.addSeparator();
+    const auto all = allNotePrograms();
+    const auto selected = mSidebar.getSelectedPrograms();
+    const bool selectedNotes = std::any_of(selected.begin(), selected.end(), [this](int p) { auto* e = mProcessor.getInstrumentMixer()->findEntry(p); return e && e->hasNotes(); });
+    menu.addItem(nn::tr("Export all MIDI"), idle && !all.empty(), false, [this,all] { mExporter.start(all, false); });
+    menu.addItem(nn::tr("Export all separately"), idle && !all.empty(), false, [this,all] { mExporter.start(all, true); });
+    menu.addItem(nn::tr("Export selected MIDI"), idle && selectedNotes, false, [this,selected] { mExporter.start(selected, false); });
+    menu.addItem(nn::tr("Export selected separately"), idle && selectedNotes, false, [this,selected] { mExporter.start(selected, true); });
+    menu.addSeparator();
+    menu.addItem(nn::tr("Save current state..."), [this] { hostAction(2); });
+    menu.addItem(nn::tr("Load a saved state..."), idle, false, [this] { hostAction(3); });
+    menu.showMenuAsync(PopupMenu::Options().withTargetComponent(&mFileMenuButton));
 }

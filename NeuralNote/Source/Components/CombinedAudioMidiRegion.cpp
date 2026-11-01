@@ -5,6 +5,7 @@
 #include "CombinedAudioMidiRegion.h"
 
 #include "NnLogger.h"
+#include "NnLocalisation.h"
 
 CombinedAudioMidiRegion::CombinedAudioMidiRegion(NeuralNoteAudioProcessor* processor, Keyboard& keyboard)
     : mProcessor(processor)
@@ -105,8 +106,8 @@ void CombinedAudioMidiRegion::filesDropped(const StringArray& files, int x, int 
                             + juce::File(files[0]).getFileExtension() + ").");
         juce::NativeMessageBox::showMessageBoxAsync(
             juce::MessageBoxIconType::NoIcon,
-            "Could not load the file.",
-            "Check your file format (Accepted formats: " + supported_format_string + ").");
+            nn::tr("Could not load the file."),
+            nn::tr("Check your file format (Accepted formats: ") + supported_format_string + nn::tr(")."));
     }
 }
 

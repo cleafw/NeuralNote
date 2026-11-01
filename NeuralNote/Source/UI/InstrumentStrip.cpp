@@ -7,6 +7,7 @@
 #include "GainConstants.h"
 #include "NnFonts.h"
 #include "NnLook.h"
+#include "NnLocalisation.h"
 
 namespace
 {
@@ -40,18 +41,22 @@ InstrumentStrip::InstrumentStrip(InstrumentMixer& inMixer, int inProgram)
         addAndMakeVisible(button);
     };
 
+    setup_toggle(mEnableButton, nn::colours::accentFillToggle(), nn::colours::accentText);
+    mEnableButton.setTooltip(nn::tr("Enable track playback"));
+    mEnableButton.onClick = [this] { mMixer.setMuted(mProgram, !mEnableButton.getToggleState()); };
+
     setup_toggle(mMuteButton, nn::colours::muteFill(), nn::colours::warn);
     setup_toggle(mSoloButton, nn::colours::accentFillToggle(), nn::colours::accentText);
 
-    mMuteButton.setTooltip("Mute this instrument");
+    mMuteButton.setTooltip(nn::tr("Mute this instrument"));
     mMuteButton.onClick = [this] { mMixer.setMuted(mProgram, mMuteButton.getToggleState()); };
 
-    mSoloButton.setTooltip("Solo this instrument");
+    mSoloButton.setTooltip(nn::tr("Solo this instrument"));
     mSoloButton.onClick = [this] { mMixer.setSoloed(mProgram, mSoloButton.getToggleState()); };
 
     mFader.setRange(MIN_INF_GAIN_DB, MAX_GAIN_DB, 0.1);
     mFader.setDoubleClickReturnValue(true, 0.0);
-    mFader.setTooltip("Level for this instrument");
+    mFader.setTooltip(nn::tr("Level for this instrument"));
     // Repainted here rather than off a mixer change message: gain does not broadcast, and this
     // strip's dB readout is the only thing in the window that draws it.
     mFader.onValueChange = [this] {
@@ -63,6 +68,13 @@ InstrumentStrip::InstrumentStrip(InstrumentMixer& inMixer, int inProgram)
     mMeter.setColour(NnLevelMeter::unlitColourId, nn::colours::meterUnlitStrip);
     addAndMakeVisible(mMeter);
 
+    mPan.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    mPan.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    mPan.setRange(-1, 1, 0.01);
+    mPan.setDoubleClickReturnValue(true, 0);
+    mPan.setTooltip(nn::tr("Pan"));
+    mPan.onValueChange = [this] { mMixer.setPan(mProgram, (float)mPan.getValue()); };
+    addAndMakeVisible(mPan);
     refreshFromMixer();
 }
 
@@ -90,9 +102,11 @@ void InstrumentStrip::setTranscriptionFinished(bool inIsFinished)
 
 void InstrumentStrip::refreshFromMixer()
 {
+    mEnableButton.setToggleState(!mMixer.isMuted(mProgram), juce::dontSendNotification);
     mMuteButton.setToggleState(mMixer.isMuted(mProgram), juce::dontSendNotification);
     mSoloButton.setToggleState(mMixer.isSoloed(mProgram), juce::dontSendNotification);
     mFader.setValue(mMixer.getGainDb(mProgram), juce::dontSendNotification);
+    mPan.setValue(mMixer.getPan(mProgram), juce::dontSendNotification);
 
     _updateAppearance();
     repaint();
@@ -104,9 +118,11 @@ void InstrumentStrip::_updateAppearance()
 
     // A strip the instrument picker put here has nothing to mix yet, so its controls are inert
     // until the next run gives it notes.
+    mEnableButton.setEnabled(mEntry.hasNotes());
     mMuteButton.setEnabled(mEntry.hasNotes());
     mSoloButton.setEnabled(mEntry.hasNotes());
     mFader.setEnabled(mEntry.hasNotes());
+    mPan.setEnabled(mEntry.hasNotes());
 
     // Muted, the fader loses its instrument colour rather than only dimming: the whole strip is
     // already drawn at half opacity, and a dimmed hue on a dimmed strip stops reading as "off".
@@ -132,12 +148,14 @@ void InstrumentStrip::resized()
     bounds.removeFromTop(PADDING_TOP);
 
     auto identity_row = bounds.removeFromTop(ROW_HEIGHT);
+    mEnableButton.setBounds(identity_row.getX(), identity_row.getY(), nn::metrics::stripChipSize, ROW_HEIGHT);
 
     auto toggles = identity_row.removeFromRight(2 * TOGGLE_WIDTH + TOGGLE_GAP)
                        .withSizeKeepingCentre(2 * TOGGLE_WIDTH + TOGGLE_GAP, TOGGLE_HEIGHT);
     mMuteButton.setBounds(toggles.removeFromLeft(TOGGLE_WIDTH));
     toggles.removeFromLeft(TOGGLE_GAP);
     mSoloButton.setBounds(toggles);
+    mPan.setBounds(identity_row.removeFromRight(24).withSizeKeepingCentre(22, 22));
 
     bounds.removeFromTop(FADER_TOP_GAP);
 
@@ -157,6 +175,8 @@ void InstrumentStrip::resized()
 
 void InstrumentStrip::paint(juce::Graphics& g)
 {
+    if (mSelected) { g.setColour(nn::colours::accentFillActive()); g.fillAll(); }
+    if (mActive) { g.setColour(nn::colours::accentText); g.fillRect(0, 0, 3, getHeight()); }
     const bool muted = mMixer.isMuted(mProgram);
     const bool soloed = mMixer.isSoloed(mProgram);
 
@@ -188,14 +208,14 @@ void InstrumentStrip::paint(juce::Graphics& g)
     // The meta line sits under the name, each at its font's own height, and runs past the identity
     // row into the gap above the fader.
     auto text_area = identity_row.withTrimmedLeft(nn::metrics::stripTextInset - nn::metrics::stripChipSize)
-                         .withTrimmedRight(2 * TOGGLE_WIDTH + TOGGLE_GAP + 8);
+                         .withTrimmedRight(2 * TOGGLE_WIDTH + TOGGLE_GAP + 32);
 
     const auto name_font = nn::fonts::instrumentName();
     auto name_area = text_area.removeFromTop(juce::roundToInt(name_font.getHeight()));
 
     g.setColour((muted ? nn::colours::textLabel : nn::colours::textStrong).withMultipliedAlpha(alpha));
     g.setFont(name_font);
-    g.drawText(mEntry.name, name_area, juce::Justification::centredLeft, true);
+    g.drawText(nn::tr(mEntry.name), name_area, juce::Justification::centredLeft, true);
 
     const auto meta_font = nn::fonts::meta();
     const auto meta_area = text_area.withTrimmedTop(META_GAP).withHeight(juce::roundToInt(meta_font.getHeight()));
@@ -205,11 +225,13 @@ void InstrumentStrip::paint(juce::Graphics& g)
     juce::String meta;
 
     if (!mEntry.hasNotes()) {
-        meta = mTranscriptionFinished ? "no notes" : juce::String();
+        meta = mTranscriptionFinished ? nn::tr("no notes") : juce::String();
+    } else if (mEntry.program == SOURCE_AUDIO_TRACK) {
+        meta = nn::tr("Original audio playback");
     } else if (mEntry.program == msl::DRUM_PROGRAM) {
-        meta = juce::String(mEntry.noteCount) + " hits" + separator + "kit map";
+        meta = juce::String(mEntry.noteCount) + nn::tr(" hits") + separator + nn::tr("kit map");
     } else {
-        meta = juce::String(mEntry.noteCount) + " notes" + separator + nn::midiNoteName(mEntry.lowestPitch) + "-"
+        meta = juce::String(mEntry.noteCount) + nn::tr(" notes") + separator + nn::midiNoteName(mEntry.lowestPitch) + "-"
                + nn::midiNoteName(mEntry.highestPitch);
     }
 

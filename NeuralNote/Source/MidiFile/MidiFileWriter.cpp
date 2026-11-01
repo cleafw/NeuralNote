@@ -80,11 +80,19 @@ MidiChannelMap buildChannelMap(const std::vector<NoteEvent>& inNoteEvents, MidiO
     return channel_map;
 }
 
+std::vector<NoteEvent> MidiFileWriter::selectPrograms(const std::vector<NoteEvent>& notes, const std::vector<int>& programs)
+{
+    std::vector<NoteEvent> result;
+    for (const auto& note : notes) if (std::find(programs.begin(), programs.end(), note.program) != programs.end()) result.push_back(note);
+    return result;
+}
+
 bool MidiFileWriter::writeMidiFile(const std::vector<NoteEvent>& inNoteEvents,
                                    const File& fileToUse,
                                    double inExportBpm,
                                    double inStartOffsetSeconds,
-                                   MidiOverflowMode inOverflowMode) const
+                                   MidiOverflowMode inOverflowMode,
+                                   const std::map<int, MidiMixSettings>& mix) const
 {
     jassert(inStartOffsetSeconds >= 0.0);
 
@@ -127,6 +135,12 @@ bool MidiFileWriter::writeMidiFile(const std::vector<NoteEvent>& inNoteEvents,
             MidiMessage::programChange(channel, program == msl::DRUM_PROGRAM ? DRUM_KIT_PROGRAM : program);
         program_change.setTimeStamp(0.0);
         track.addEvent(program_change);
+        if (const auto it = mix.find(program); it != mix.end()) {
+            const int volume = juce::jlimit(0, 127, juce::roundToInt(100.0f * juce::Decibels::decibelsToGain(it->second.gainDb)));
+            const int pan = juce::jlimit(0, 127, juce::roundToInt((it->second.pan + 1.0f) * 63.5f));
+            track.addEvent(MidiMessage::controllerEvent(channel, 7, volume));
+            track.addEvent(MidiMessage::controllerEvent(channel, 10, pan));
+        }
     }
 
     for (const auto& note: inNoteEvents) {

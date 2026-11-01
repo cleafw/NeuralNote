@@ -20,11 +20,19 @@
 namespace NNFileUtils
 {
 
-/** <user application data>/NeuralNote: ~/Library on macOS, %APPDATA% on Windows, ~/.config on Linux. */
+/** Windows: <user profile>/.neuralnote, outside MSIX AppData redirection.
+    Other platforms retain their existing application-data location. */
 juce::File getNeuralNoteDirectory();
 
 /** <NeuralNote>/models, where checkpoints are downloaded to, or put by hand. */
 juce::File getModelsDirectory();
+
+/** Per-model location selected before downloading; persisted separately from global settings. */
+juce::File getModelDirectory(ModelSize inModelSize);
+bool setModelDirectory(ModelSize inModelSize, const juce::File& inDirectory);
+/** Called only when opening the download chooser. Creates a portable default if needed;
+    does not persist a location until the user confirms their choice. */
+juce::File prepareModelDownloadDirectory(ModelSize inModelSize);
 
 /** <NeuralNote>/global.settings, the settings shared by every instance. See NnGlobalSettings. */
 juce::File getGlobalSettingsFile();

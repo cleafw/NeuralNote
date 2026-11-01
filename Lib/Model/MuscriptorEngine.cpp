@@ -11,6 +11,7 @@
 #include "ComputeDevices.h"
 #include "NNFileUtils.h"
 #include "NnLogger.h"
+#include "NnLocalisation.h"
 #include "TranscriptionConstants.h"
 
 static_assert(juce::exactlyEqual(TRANSCRIPTION_SAMPLE_RATE, static_cast<double>(msl::Transcriber::SAMPLE_RATE)),
@@ -83,17 +84,19 @@ MuscriptorEngine::Outcome MuscriptorEngine::_loadModel(ModelSize inModelSize, co
         // A checkpoint from another release that happens to have this one's size counts as
         // installed, so this is the first place it shows. Deleting it is what makes it downloadable.
         if (loaded.error() == msl::Error::UnsupportedCheckpointVersion) {
-            mLastErrorMessage = model_file.getFileName().toStdString()
-                                + " is for another version of NeuralNote. Delete it from the models folder,"
-                                  " then download it again";
+            mLastErrorMessage = (String(model_file.getFileName())
+                                 + nn::tr(" is for another version of NeuralNote. Delete it from the models folder,"
+                                          " then download it again"))
+                                    .toStdString();
         }
 
         // Only an explicit choice can fail this way. The list lasts as long as the plugin binary is
         // loaded, which in a DAW can outlast closing NeuralNote.
         else if (loaded.error() == msl::Error::DeviceUnavailable && options.device.has_value()) {
-            mLastErrorMessage = ComputeDevices::label(devices, *options.device)
-                                + " could not be used. Choose Auto or CPU under Settings > Compute device,"
-                                  " or restart NeuralNote (or your DAW) if your GPUs have changed";
+            mLastErrorMessage = (String(ComputeDevices::label(devices, *options.device))
+                                 + nn::tr(" could not be used. Choose Auto or CPU under Settings > Compute device,"
+                                          " or restart NeuralNote (or your DAW) if your GPUs have changed"))
+                                    .toStdString();
         }
 
         else {

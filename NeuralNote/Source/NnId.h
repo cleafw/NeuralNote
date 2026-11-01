@@ -99,7 +99,9 @@ const std::vector<std::pair<Identifier, var>> OrderedStatePropertiesWithDefault 
     {LoopEnabledId, false},
     {ZoomLevelId, 1.0},
     {VerticalZoomId, -1.0},
-    {SelectedInstrumentGroupsId, String()}};
+    {SelectedInstrumentGroupsId, String()},
+    {Identifier("selectedTrackPrograms"), String()},
+    {Identifier("activePreviewProgram"), 0}};
 
 } // namespace NnId
 

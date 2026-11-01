@@ -13,13 +13,118 @@ namespace NNFileUtils
 
 juce::File getNeuralNoteDirectory()
 {
-    return juce::File::getSpecialLocation(juce::File::SpecialLocationType::userApplicationDataDirectory)
-        .getChildFile("NeuralNote");
+#if JUCE_WINDOWS
+    // MSIX parents (including Codex) virtualise Roaming AppData for child processes.
+    // A profile-root directory has the same physical identity for desktop and packaged launches.
+    static const juce::File directory = [] {
+        const auto profile = juce::File::getSpecialLocation(juce::File::userHomeDirectory);
+        const auto target = profile.getChildFile(".neuralnote");
+        const auto legacy = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("NeuralNote");
+        if (target.createDirectory().failed()) return legacy;
+        juce::Array<juce::File> sources;
+        sources.add(legacy);
+        sources.add(profile.getChildFile("AppData/Roaming/NeuralNote"));
+        for (const auto& package : profile.getChildFile("AppData/Local/Packages").findChildFiles(juce::File::findDirectories, false, "OpenAI.Codex_*"))
+            sources.add(package.getChildFile("LocalCache/Roaming/NeuralNote"));
+        // Copy preferences only; leave large model files, recordings and old sessions intact.
+        // Existing canonical preferences always take precedence, so migration runs only once per file.
+        for (const auto* name : {"model-directory-small.txt", "model-directory-medium.txt", "model-directory-large.txt", "global.settings", "NeuralNote.settings"}) {
+            const auto destination = target.getChildFile(name);
+            if (destination.existsAsFile()) continue;
+            juce::File newest;
+            for (const auto& source : sources) {
+                const auto candidate = source.getChildFile(name);
+                if (candidate.getSize() > 0 && (!newest.existsAsFile() || candidate.getLastModificationTime() > newest.getLastModificationTime()))
+                    newest = candidate;
+            }
+            if (newest.existsAsFile()) newest.copyFileTo(destination);
+        }
+        for (const auto size : ALL_MODEL_SIZES) {
+            const auto locationFile = target.getChildFile(juce::String("model-directory-") + modelSizeToString(size) + ".txt");
+            if (locationFile.existsAsFile()) continue;
+            const auto& manifest = getModelManifestEntry(size);
+            for (const auto& source : sources) {
+                const auto folder = source.getChildFile("models");
+                if (folder.getChildFile(manifest.fileName).getSize() == manifest.numBytes) {
+                    locationFile.replaceWithText(folder.getFullPathName()); break;
+                }
+            }
+        }
+        return target;
+    }();
+    return directory;
+#else
+    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("NeuralNote");
+#endif
+
 }
 
 juce::File getModelsDirectory()
 {
     return getNeuralNoteDirectory().getChildFile("models");
+}
+
+juce::File getModelDirectory(ModelSize inModelSize)
+{
+    const auto path = getNeuralNoteDirectory()
+                          .getChildFile(juce::String("model-directory-") + modelSizeToString(inModelSize) + ".txt")
+                          .loadFileAsString().trim();
+    return juce::File::isAbsolutePath(path) ? juce::File(path) : getModelsDirectory();
+}
+
+bool setModelDirectory(ModelSize inModelSize, const juce::File& inDirectory)
+{
+    if (!ensureDirectoryExists(inDirectory) || !inDirectory.hasWriteAccess()
+        || !ensureDirectoryExists(getNeuralNoteDirectory())) {
+        return false;
+    }
+    return getNeuralNoteDirectory()
+        .getChildFile(juce::String("model-directory-") + modelSizeToString(inModelSize) + ".txt")
+        .replaceWithText(inDirectory.getFullPathName());
+}
+
+juce::File prepareModelDownloadDirectory(ModelSize inModelSize)
+{
+    const auto usable = [](const juce::File& directory) {
+        return directory.isDirectory() && directory.hasWriteAccess();
+    };
+    // Keep explicit choices and legacy installed/partial models working. Merely opening
+    // a picker must not change where an existing model is loaded from.
+    const auto previous = getModelDirectory(inModelSize);
+    if (usable(previous) && (previous != getModelsDirectory()
+                            || isModelInstalled(inModelSize) || getModelPartFile(inModelSize).existsAsFile()))
+        return previous;
+    for (const auto size : ALL_MODEL_SIZES) {
+        const auto shared = getModelDirectory(size);
+        if (shared != getModelsDirectory() && usable(shared)) return shared;
+    }
+#if JUCE_WINDOWS
+    juce::Array<juce::File> roots;
+    juce::File::findFileSystemRoots(roots);
+    std::sort(roots.begin(), roots.end(), [](const auto& a, const auto& b) {
+        return a.getFullPathName().compareIgnoreCase(b.getFullPathName()) < 0;
+    });
+    const auto systemDirectory = juce::File::getSpecialLocation(juce::File::windowsSystemDirectory);
+    for (const auto& root : roots) {
+        // Avoid both C: and the actual Windows volume (Windows need not be on C:).
+        // Do not auto-select disconnected, network, optical or removable media.
+        if (root.getFullPathName().startsWithIgnoreCase("C:")
+            || systemDirectory.isAChildOf(root) || !root.isDirectory()
+            || !root.isOnHardDisk() || root.isOnRemovableDrive()
+            || root.getBytesFreeOnVolume() < getModelManifestEntry(inModelSize).numBytes)
+            continue;
+        const auto candidate = root.getChildFile("NeuralNote").getChildFile("models");
+        if (ensureDirectoryExists(candidate) && usable(candidate)) return candidate;
+    }
+#endif
+    // A machine may have only one drive. Use a per-user writable location instead
+    // of demanding administrator access to its root. The picker still allows any path.
+    const auto fallback = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                              .getChildFile("NeuralNote").getChildFile("models");
+    if (ensureDirectoryExists(fallback) && usable(fallback)) return fallback;
+    const auto legacy = getModelsDirectory();
+    if (ensureDirectoryExists(legacy) && usable(legacy)) return legacy;
+    return juce::File::getSpecialLocation(juce::File::userHomeDirectory);
 }
 
 juce::File getGlobalSettingsFile()
@@ -59,7 +164,7 @@ bool ensureDirectoryExists(const juce::File& inDirectory)
 
 juce::File getModelFile(ModelSize inModelSize)
 {
-    return getModelsDirectory().getChildFile(getModelManifestEntry(inModelSize).fileName);
+    return getModelDirectory(inModelSize).getChildFile(getModelManifestEntry(inModelSize).fileName);
 }
 
 bool isModelInstalled(ModelSize inModelSize)
@@ -96,7 +201,7 @@ juce::File getModelPartFile(ModelSize inModelSize)
 {
     const ModelManifestEntry& entry = getModelManifestEntry(inModelSize);
 
-    return getModelsDirectory().getChildFile(juce::String(entry.fileName) + "."
+    return getModelDirectory(inModelSize).getChildFile(juce::String(entry.fileName) + "."
                                              + juce::String(entry.sha256).substring(0, 8) + ".part");
 }
 

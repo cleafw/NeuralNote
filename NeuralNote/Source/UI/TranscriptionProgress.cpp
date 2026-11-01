@@ -9,12 +9,13 @@
 #include "NnIcons.h"
 #include "NnLook.h"
 #include "PluginProcessor.h"
+#include "NnLocalisation.h"
 
 namespace
 {
-const juce::String LOADING_CAPTION = "LOADING MODEL";
-const juce::String TRANSCRIBING_CAPTION = "TRANSCRIBING";
-const juce::String PAUSED_CAPTION = "PAUSED";
+constexpr const char* LOADING_CAPTION = "LOADING MODEL";
+constexpr const char* TRANSCRIBING_CAPTION = "TRANSCRIBING";
+constexpr const char* PAUSED_CAPTION = "PAUSED";
 constexpr float CAPTION_TRACKING = 0.06f;
 
 constexpr float BAR_CORNER = 2.0f;
@@ -26,7 +27,7 @@ constexpr float PULSE_MIN = 0.55f;
 
 int captionWidth(const juce::String& inCaption)
 {
-    return static_cast<int>(std::ceil(nn::trackedTextWidth(inCaption, nn::fonts::statusBar(), CAPTION_TRACKING)));
+    return static_cast<int>(std::ceil(nn::trackedTextWidth(nn::tr(inCaption), nn::fonts::statusBar(), CAPTION_TRACKING)));
 }
 
 /** Room for the widest caption, so the group does not change size when the phase does. */
@@ -73,8 +74,8 @@ void TranscriptionProgress::_updateButton(bool inIsPaused)
     mPauseResumeButton.setIcon(inIsPaused ? nn::icons::play : nn::icons::pause,
                                NnFlatButton::IconStyle::filled,
                                static_cast<float>(nn::metrics::pauseResumeGlyphSize));
-    mPauseResumeButton.setTooltip(inIsPaused ? NeuralNoteTooltips::resume_transcription
-                                             : NeuralNoteTooltips::pause_transcription);
+    mPauseResumeButton.setTooltip(inIsPaused ? nn::tr(NeuralNoteTooltips::resume_transcription)
+                                             : nn::tr(NeuralNoteTooltips::pause_transcription));
 }
 
 int TranscriptionProgress::getIdealWidth()
@@ -103,9 +104,9 @@ void TranscriptionProgress::paint(juce::Graphics& g)
 
     g.setColour(nn::colours::progressText.withMultipliedAlpha(alpha));
     nn::drawTrackedText(g,
-                        mIsPaused ? PAUSED_CAPTION
+                        nn::tr(mIsPaused ? PAUSED_CAPTION
                         : loading ? LOADING_CAPTION
-                                  : TRANSCRIBING_CAPTION,
+                                  : TRANSCRIBING_CAPTION),
                         nn::fonts::statusBar(),
                         row.removeFromLeft(captionSlotWidth()).toFloat(),
                         juce::Justification::centredRight,

@@ -127,7 +127,11 @@ void InstrumentMixer::resetStoredSettings()
     // Removed rather than emptied node by node: an instrument the new transcription does not
     // contain would otherwise keep a node around for the next one to inherit. The listener below
     // is what pushes the neutral values to the synth and refreshes the strips.
+    auto source = _nodeForProgram(SOURCE_AUDIO_TRACK, false).createCopy();
     state.removeChild(state.getChildWithName(NnId::InstrumentMixerId), nullptr);
+    if (source.isValid()) {
+        auto mixer = juce::ValueTree(NnId::InstrumentMixerId); mixer.appendChild(source, nullptr); state.appendChild(mixer, nullptr);
+    }
 }
 
 const InstrumentEntry* InstrumentMixer::findEntry(int inProgram) const
@@ -156,6 +160,9 @@ float InstrumentMixer::getGainDb(int inProgram) const
     return node.isValid() ? static_cast<float>(node.getProperty(NnId::GainDbId, 0.0)) : 0.0f;
 }
 
+float InstrumentMixer::getPan(int program) const { return (float)_nodeForProgram(program, false).getProperty("pan", 0.0); }
+void InstrumentMixer::setPan(int program, float pan) { _nodeForProgram(program, true).setProperty("pan", juce::jlimit(-1.0f, 1.0f, pan), nullptr); }
+
 bool InstrumentMixer::isMuted(int inProgram) const
 {
     const juce::ValueTree node = _nodeForProgram(inProgram, false);
@@ -178,7 +185,7 @@ bool InstrumentMixer::isAudible(int inProgram) const
 
     // Solo is only meaningful against the instruments on screen: one left soloed by a previous
     // transcription would otherwise silence the whole of the current one.
-    const bool anySoloed =
+    const bool anySoloed = isSoloed(SOURCE_AUDIO_TRACK) ||
         std::any_of(mEntries.begin(), mEntries.end(), [this](const InstrumentEntry& e) { return isSoloed(e.program); });
 
     return !anySoloed || isSoloed(inProgram);
@@ -207,7 +214,7 @@ void InstrumentMixer::valueTreePropertyChanged(juce::ValueTree& inTree, const ju
         return;
     }
 
-    if (inProperty != NnId::GainDbId && inProperty != NnId::MutedId && inProperty != NnId::SoloedId) {
+    if (inProperty != juce::Identifier("pan") && inProperty != NnId::GainDbId && inProperty != NnId::MutedId && inProperty != NnId::SoloedId) {
         return;
     }
 
@@ -216,7 +223,7 @@ void InstrumentMixer::valueTreePropertyChanged(juce::ValueTree& inTree, const ju
     // Gain deliberately does not broadcast. Nothing listening draws it: the piano roll dims notes
     // by audibility, the status bar counts them, and the strip that owns the fader repaints itself.
     // Broadcasting would put a full redraw of every note behind each frame of a fader drag.
-    if (inProperty != NnId::GainDbId) {
+    if (inProperty != NnId::GainDbId && inProperty != juce::Identifier("pan")) {
         sendChangeMessage();
     }
 }
@@ -272,7 +279,10 @@ void InstrumentMixer::_pushAllToSynth()
 
     for (const InstrumentEntry& entry: mEntries) {
         synth->setGainDb(entry.program, getGainDb(entry.program));
-        synth->setMuted(entry.program, isMuted(entry.program));
+        synth->setPan(entry.program, getPan(entry.program));
+        synth->setMuted(entry.program, isMuted(entry.program) || (isSoloed(SOURCE_AUDIO_TRACK) && !isSoloed(entry.program)));
         synth->setSoloed(entry.program, isSoloed(entry.program));
     }
+    mProcessor->getPlayer()->setSourceMix(getGainDb(SOURCE_AUDIO_TRACK), getPan(SOURCE_AUDIO_TRACK), isAudible(SOURCE_AUDIO_TRACK));
+    mProcessor->getPlayer()->refreshPreviewInstrument();
 }

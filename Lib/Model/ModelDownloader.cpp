@@ -9,6 +9,7 @@
 #include "ModelManifest.h"
 #include "NNFileUtils.h"
 #include "NnLogger.h"
+#include "NnLocalisation.h"
 
 namespace
 {
@@ -60,7 +61,9 @@ public:
         }
 
         // Before the thread starts, so a status read in between does not see the last run's phase.
-        mDownloadedBytes = NNFileUtils::getModelPartFile(mModelSize).getSize();
+        mTargetFile = NNFileUtils::getModelFile(mModelSize);
+        mPartFile = NNFileUtils::getModelPartFile(mModelSize);
+        mDownloadedBytes = mPartFile.getSize();
         mPhase = Phase::Downloading;
 
         // Consumes a notify() left by a stop that found no retry delay to wake.
@@ -127,7 +130,7 @@ private:
     {
         const ModelManifestEntry& entry = getModelManifestEntry(mModelSize);
 
-        if (NNFileUtils::isModelInstalled(mModelSize)) {
+        if (mTargetFile.getSize() == entry.numBytes) {
             return {};
         }
 
@@ -137,16 +140,16 @@ private:
         juce::InterProcessLock process_lock("NeuralNoteModelDownload_" + juce::String(modelSizeToString(mModelSize)));
 
         if (!process_lock.enter(0)) {
-            return "Another NeuralNote is already downloading this model";
+            return nn::tr("Another NeuralNote is already downloading this model");
         }
 
-        const juce::File directory = NNFileUtils::getModelsDirectory();
+        const juce::File directory = mTargetFile.getParentDirectory();
 
         if (!NNFileUtils::ensureDirectoryExists(directory)) {
-            return "Could not create " + directory.getFullPathName();
+            return nn::tr("Could not create ") + directory.getFullPathName();
         }
 
-        const juce::File part = NNFileUtils::getModelPartFile(mModelSize);
+        const juce::File part = mPartFile;
         _deleteOtherPartFiles(part);
 
         size_t failed_attempts = 0;
@@ -195,12 +198,12 @@ private:
                             "ModelDownloader: " + juce::String(modelSizeToString(mModelSize))
                                 + ": checksum mismatch, got " + digest);
             part.deleteFile();
-            return "The download was corrupted. Try again";
+            return nn::tr("The download was corrupted. Try again");
         }
 
         // Replaces a checkpoint of the wrong size, which is what a file from another release is.
-        if (!part.moveFileTo(NNFileUtils::getModelFile(mModelSize))) {
-            return "Could not move the model into " + directory.getFullPathName();
+        if (!part.moveFileTo(mTargetFile)) {
+            return nn::tr("Could not move the model into ") + directory.getFullPathName();
         }
 
         NnLogger::write(NnLogger::Level::Info,
@@ -244,7 +247,7 @@ private:
         }
 
         if (!stream.connect(nullptr)) {
-            return {"Could not reach huggingface.co"};
+            return {nn::tr("Could not reach huggingface.co")};
         }
 
         const int status_code = stream.getStatusCode();
@@ -264,12 +267,12 @@ private:
             // Not a continuation of the part file: start again, as for 416.
             if (!range_matches) {
                 inPart.deleteFile();
-                return {"Unexpected response from huggingface.co"};
+                return {nn::tr("Unexpected response from huggingface.co")};
             }
         } else if (status_code == 200) {
             // The whole file, whether or not a range was asked for.
             if (offset > 0 && !inPart.deleteFile()) {
-                return {"Could not write to " + inPart.getFullPathName(), false};
+                return {nn::tr("Could not write to ") + inPart.getFullPathName(), false};
             }
 
             offset = 0;
@@ -277,15 +280,15 @@ private:
         } else if (status_code == 416) {
             // The part file is not a prefix the server recognises: start again.
             inPart.deleteFile();
-            return {"The partial download could not be resumed"};
+            return {nn::tr("The partial download could not be resumed")};
         } else {
-            return {"huggingface.co answered HTTP " + juce::String(status_code), status_code >= 500};
+            return {nn::tr("huggingface.co answered HTTP ") + juce::String(status_code), status_code >= 500};
         }
 
         juce::FileOutputStream output(inPart);
 
         if (output.failedToOpen()) {
-            return {"Could not write to " + inPart.getFullPathName(), false};
+            return {nn::tr("Could not write to ") + inPart.getFullPathName(), false};
         }
 
         juce::HeapBlock<char> buffer(CHUNK_BYTES);
@@ -298,11 +301,11 @@ private:
             }
 
             if (mDownloadedBytes.load() + num_read > inEntry.numBytes) {
-                return {"huggingface.co sent more than the expected size", false};
+                return {nn::tr("huggingface.co sent more than the expected size"), false};
             }
 
             if (!output.write(buffer.get(), static_cast<size_t>(num_read))) {
-                return {"Could not write to " + inPart.getFullPathName(), false};
+                return {nn::tr("Could not write to ") + inPart.getFullPathName(), false};
             }
 
             mDownloadedBytes += num_read;
@@ -311,12 +314,12 @@ private:
         output.flush();
 
         if (output.getStatus().failed()) {
-            return {"Could not write to " + inPart.getFullPathName(), false};
+            return {nn::tr("Could not write to ") + inPart.getFullPathName(), false};
         }
 
         // A connection that drops mid-body ends the stream early rather than reporting an error.
         if (mDownloadedBytes.load() != inEntry.numBytes) {
-            return {"The connection dropped"};
+            return {nn::tr("The connection dropped")};
         }
 
         return {};
@@ -336,6 +339,8 @@ private:
     }
 
     const ModelSize mModelSize;
+    juce::File mTargetFile;
+    juce::File mPartFile;
 
     std::atomic<Phase> mPhase {Phase::Idle};
     std::atomic<juce::int64> mDownloadedBytes {0};

@@ -39,11 +39,18 @@ namespace NnGlobalSettings
 /** Re-reads the file. Called when an editor opens, so a new window picks up outside changes. */
 void reload();
 
+/** system (default), en, or zh-CN. */
+juce::String getLanguage();
+void setLanguage(const juce::String& language);
+
 ModelSize getModelSize();
 void setModelSize(ModelSize inModelSize);
 
 /** The scale an editor last applied, already clamped to the display it was on. */
 double getEditorScale();
+struct EditorWindowSize { int x; int y; };
+EditorWindowSize getEditorWindowSize();
+void setEditorWindowSize(int width, int height);
 void setEditorScale(double inScale);
 
 bool getTooltipsVisible();

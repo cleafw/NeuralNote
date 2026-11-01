@@ -80,6 +80,7 @@ public:
 
     // Per-instrument parameters. Message thread; the audio thread reads them once per block.
     void setGainDb(int inProgram, float inGainDb);
+    void setPan(int program, float pan);
     void setMuted(int inProgram, bool inMuted);
     void setSoloed(int inProgram, bool inSoloed);
 
@@ -105,6 +106,7 @@ private:
         int program = 0;
         int presetIndex = -1;
         SmoothedValue<float, ValueSmoothingTypes::Linear> gain;
+        SmoothedValue<float, ValueSmoothingTypes::Linear> pan {0.0f};
 
         // Post-fader, so a mute or a solo takes the meter down with the signal rather than needing
         // to be accounted for again on the way to the UI.
@@ -128,6 +130,7 @@ private:
      */
     struct AtomicInstrumentParams {
         std::atomic<float> gainDb {0.0f};
+        std::atomic<float> pan {0.0f};
         std::atomic<bool> muted {false};
         std::atomic<bool> soloed {false};
     };

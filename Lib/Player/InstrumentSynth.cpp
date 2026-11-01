@@ -122,6 +122,7 @@ void InstrumentSynth::ensureInstrument(int inProgram)
     }
 
     instrument->program = inProgram;
+    instrument->pan.reset(mSampleRate, 0.01);
     instrument->presetIndex = preset_index;
 
     tsfExtrasGetLoopingKeys(mFont, preset_index, instrument->loopingKeys.data());
@@ -288,10 +289,12 @@ void InstrumentSynth::_renderSpan(int inStartSample, int inNumSamples)
 
         tsf_render_float(instrument->font, left, inNumSamples, /*flag_mixing=*/0);
 
+        instrument->pan.setTargetValue(mParams[(size_t)instrument->program].pan.load());
         for (int i = 0; i < inNumSamples; i++) {
             const float gain = instrument->gain.getNextValue();
-            const float l = left[i] * gain;
-            const float r = right[i] * gain;
+            const float pan = instrument->pan.getNextValue();
+            const float l = left[i] * gain * (pan > 0 ? 1.0f - pan : 1.0f);
+            const float r = right[i] * gain * (pan < 0 ? 1.0f + pan : 1.0f);
 
             mix_left[inStartSample + i] += l;
             mix_right[inStartSample + i] += r;
@@ -368,6 +371,8 @@ void InstrumentSynth::allNotesOff()
         tsf_note_off_all(instrument->font);
     }
 }
+
+void InstrumentSynth::setPan(int program, float pan) { mParams[(size_t)program].pan.store(std::clamp(pan, -1.0f, 1.0f)); }
 
 void InstrumentSynth::setGainDb(int inProgram, float inGainDb)
 {

@@ -11,6 +11,7 @@ Player::Player(NeuralNoteAudioProcessor* inProcessor)
     mProcessor->addListenerToStateValueTree(this);
 
     mSynth = std::make_unique<InstrumentSynth>();
+    mPreviewSynth = std::make_unique<InstrumentSynth>();
     mSynthController = std::make_unique<SynthController>(inProcessor);
 
     setPlayheadPositionSeconds(mProcessor->getValueTree().getProperty(NnId::PlayheadPositionSecId, 0.0));
@@ -27,6 +28,10 @@ Player::~Player()
 void Player::prepareToPlay(double inSampleRate, int inSamplesPerBlock)
 {
     mSynth->prepareToPlay(inSampleRate, inSamplesPerBlock);
+    mPreviewSynth->prepareToPlay(inSampleRate, inSamplesPerBlock);
+    mPreviewSynth->allNotesOff();
+    mSoundingPreviewKey = -1;
+    mPreviewKey.store(-1);
     mSynthController->setSampleRate(inSampleRate);
     mSampleRate = inSampleRate;
 
@@ -42,6 +47,8 @@ void Player::prepareToPlay(double inSampleRate, int inSamplesPerBlock)
 void Player::processBlock(AudioBuffer<float>& inAudioBuffer, MidiBuffer& outMidiBuffer)
 {
     auto old_audio_gain = mGainSourceAudio;
+    const float old_source_pan = mCurrentSourcePan;
+    mSourceMeanSquare.store(0.0f);
     auto old_master_gain = mMasterGain;
 
     int playhead_index = static_cast<int>(std::round(mPlayheadTime * mSampleRate));
@@ -93,6 +100,23 @@ void Player::processBlock(AudioBuffer<float>& inAudioBuffer, MidiBuffer& outMidi
     mSynth->processBlock(
         mInternalBuffer, mSynthController->getSynthEvents(), inAudioBuffer.getNumSamples(), mGainSynth);
 
+    // Separate voices: releasing a preview must never stop a transcription note.
+    std::array<SynthEvent, 2> previewEvents;
+    int previewCount = 0;
+    const int previewKey = mPreviewKey.load();
+    const int previewProgram = mPreviewProgram.load();
+    if (previewKey != mSoundingPreviewKey || previewProgram != mSoundingPreviewProgram) {
+        if (mSoundingPreviewKey >= 0)
+            previewEvents[previewCount++] = {0, mSoundingPreviewProgram, mSoundingPreviewKey, 0.0f, false};
+        if (previewKey >= 0)
+            previewEvents[previewCount++] = {0, previewProgram, previewKey, 0.75f, true};
+        mSoundingPreviewKey = previewKey;
+        mSoundingPreviewProgram = previewProgram;
+    }
+    mPreviewSynth->processBlock(mInternalBuffer,
+        std::span<const SynthEvent>(previewEvents.data(), static_cast<size_t>(previewCount)),
+        inAudioBuffer.getNumSamples(), 0.65f);
+
     if (is_playing && mProcessor->canPlay()) {
         const auto& source_buffer = mProcessor->getSourceAudioManager()->getSourceAudioForPlayback();
         int num_samples = std::min(inAudioBuffer.getNumSamples(), source_buffer.getNumSamples() - playhead_index);
@@ -105,10 +129,16 @@ void Player::processBlock(AudioBuffer<float>& inAudioBuffer, MidiBuffer& outMidi
                                             0,
                                             source_buffer.getReadPointer(source_channel) + playhead_index,
                                             num_samples,
-                                            old_audio_gain,
-                                            mGainSourceAudio);
+                                            old_audio_gain * (num_out_channels == 1 ? 1.0f : ch == 0 ? (old_source_pan > 0 ? 1-old_source_pan : 1) : (old_source_pan < 0 ? 1+old_source_pan : 1)),
+                                            mGainSourceAudio * (num_out_channels == 1 ? 1.0f : ch == 0 ? (mCurrentSourcePan > 0 ? 1-mCurrentSourcePan : 1) : (mCurrentSourcePan < 0 ? 1+mCurrentSourcePan : 1)));
         }
 
+        float meanSquare = 0;
+        for (int ch = 0; ch < num_source_channel; ++ch) {
+            const float rms = source_buffer.getRMSLevel(ch, playhead_index, num_samples);
+            meanSquare += rms * rms;
+        }
+        mSourceMeanSquare.store(meanSquare * mGainSourceAudio * mGainSourceAudio / juce::jmax(1,num_source_channel));
         playhead_index += num_samples;
 
         if (playhead_index >= source_buffer.getNumSamples()) {
@@ -146,6 +176,20 @@ void Player::processBlock(AudioBuffer<float>& inAudioBuffer, MidiBuffer& outMidi
 bool Player::isPlaying() const
 {
     return mIsPlaying.load();
+}
+
+void Player::previewKey(int note)
+{
+    if (note >= 0 && note <= 127) {
+        const ScopedLock lock(mProcessor->getCallbackLock());
+        int program = (int)mProcessor->getValueTree().getProperty("activePreviewProgram", 0);
+        if (!mProcessor->getInstrumentMixer()->findEntry(program)) program = 0;
+        mPreviewSynth->ensureInstrument(program);
+        mPreviewSynth->setGainDb(program, mProcessor->getInstrumentMixer()->getGainDb(program));
+        mPreviewSynth->setPan(program, mProcessor->getInstrumentMixer()->getPan(program));
+        mPreviewProgram.store(program);
+    }
+    mPreviewKey.store(note >= 0 && note <= 127 ? note : -1);
 }
 
 void Player::setPlayingState(bool inIsPlaying)
@@ -233,14 +277,16 @@ void Player::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, co
 
 void Player::_setGains(float inMix, float inMasterGainDb)
 {
-    // With no notes the synth side is silence, so a mix towards MIDI would only fade the source
-    // out for nothing.
-    const float mix = mSynthController->hasNotes() ? inMix : 0.0f;
-
-    // Equal power, so the two are both 3 dB down at the midpoint rather than summing to a bump.
-    const float angle = mix * MathConstants<float>::halfPi;
-
-    mGainSourceAudio = std::cos(angle);
-    mGainSynth = std::sin(angle);
+    juce::ignoreUnused(inMix); // Kept in old sessions; explicit track routing replaces the crossfade.
+    mGainSourceAudio = mSourceEnabled.load() ? Decibels::decibelsToGain(mSourceGainDb.load(), MIN_INF_GAIN_DB) : 0.0f;
+    mCurrentSourcePan = mSourcePan.load();
+    mGainSynth = 1.0f;
     mMasterGain = Decibels::decibelsToGain(inMasterGainDb, MIN_INF_GAIN_DB);
+}
+
+void Player::setSourceMix(float gainDb, float pan, bool enabled)
+{
+    mSourceGainDb.store(gainDb);
+    mSourcePan.store(juce::jlimit(-1.0f,1.0f,pan));
+    mSourceEnabled.store(enabled);
 }

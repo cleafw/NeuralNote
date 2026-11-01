@@ -68,7 +68,7 @@ namespace
         auto& props = properties();
 
         props.setValue(MODEL_SIZE_KEY, modelSizeToString(getModelSize()));
-        props.setValue(EDITOR_SCALE_KEY, getEditorScale());
+        props.setValue("uiScaleV2", getEditorScale());
         props.setValue(TOOLTIPS_VISIBLE_KEY, getTooltipsVisible());
 
         const ComputeDeviceChoice device = getComputeDevice();
@@ -87,6 +87,18 @@ void reload()
     properties().reload();
 }
 
+juce::String getLanguage()
+{
+    const auto value = properties().getValue("language", "system");
+    return value == "en" || value == "zh-CN" ? value : juce::String("system");
+}
+
+void setLanguage(const juce::String& language)
+{
+    properties().setValue("language", language == "en" || language == "zh-CN" ? language : "system");
+    _saveAllSettings();
+}
+
 ModelSize getModelSize()
 {
     const juce::String name = properties().getValue(MODEL_SIZE_KEY);
@@ -103,13 +115,23 @@ void setModelSize(ModelSize inModelSize)
 
 double getEditorScale()
 {
-    return properties().getDoubleValue(EDITOR_SCALE_KEY, 1.0);
+    return properties().getDoubleValue("uiScaleV2", 1.0);
 }
 
 void setEditorScale(double inScale)
 {
-    properties().setValue(EDITOR_SCALE_KEY, inScale);
+    properties().setValue("uiScaleV2", inScale);
     _saveAllSettings();
+}
+
+EditorWindowSize getEditorWindowSize()
+{
+    const double oldScale = properties().getDoubleValue(EDITOR_SCALE_KEY, 1.0);
+    return {properties().getIntValue("windowWidthV2", juce::roundToInt(1280 * oldScale)), properties().getIntValue("windowHeightV2", juce::roundToInt(800 * oldScale))};
+}
+void setEditorWindowSize(int width, int height)
+{
+    properties().setValue("windowWidthV2", width); properties().setValue("windowHeightV2", height); _saveAllSettings();
 }
 
 bool getTooltipsVisible()

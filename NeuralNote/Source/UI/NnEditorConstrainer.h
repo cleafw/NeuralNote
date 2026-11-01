@@ -23,6 +23,7 @@ class NnEditorConstrainer : public juce::ComponentBoundsConstrainer
 public:
     /** @param inEditor The editor this governs, whose display is queried on every check. */
     void configure(juce::Component* inEditor);
+    void setUiScale(double scale) { mUiScale = scale; _applyMaximumSizeForCurrentDisplay(); }
 
     /** @return The largest scale the current display allows, never above nn::metrics::maxEditorScale. */
     double maxScaleForCurrentDisplay() const;
@@ -58,6 +59,7 @@ private:
     static constexpr double MAX_DISPLAY_PERCENT_HEIGHT = 0.90;
 
     juce::Component* mEditor = nullptr;
+    double mUiScale = 1.0;
 
     JUCE_LEAK_DETECTOR(NnEditorConstrainer)
 };

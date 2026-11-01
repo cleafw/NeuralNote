@@ -10,6 +10,7 @@
 #include "NnFonts.h"
 #include "NnIcons.h"
 #include "NnLook.h"
+#include "NnLocalisation.h"
 
 VisualizationPanel::VisualizationPanel(NeuralNoteAudioProcessor* processor)
     : mProcessor(processor)
@@ -22,6 +23,7 @@ VisualizationPanel::VisualizationPanel(NeuralNoteAudioProcessor* processor)
     addAndMakeVisible(mToolbar);
     addAndMakeVisible(mGutter);
     addAndMakeVisible(mKeyboard);
+    mKeyboard.onPreviewKey = [processor](int note) { processor->getPlayer()->previewKey(note); };
 
     mAudioMidiViewport.setViewedComponent(&mCombinedAudioMidiRegion, false);
     mAudioMidiViewport.setScrollBarsShown(false, true, false, false);
@@ -48,7 +50,7 @@ VisualizationPanel::VisualizationPanel(NeuralNoteAudioProcessor* processor)
     mTranscribeButton.setColour(NnFlatButton::outlineColourId, nn::colours::ctaBorder);
     mTranscribeButton.setColour(NnFlatButton::iconColourId, nn::colours::ctaText);
     mTranscribeButton.setColour(NnFlatButton::textColourId, nn::colours::ctaText);
-    mTranscribeButton.setTooltip(NeuralNoteTooltips::transcribe);
+    mTranscribeButton.setTooltip(nn::tr(NeuralNoteTooltips::transcribe));
     mTranscribeButton.onClick = [this] { mProcessor->getTranscriptionManager()->startTranscription(); };
     addChildComponent(mTranscribeButton);
 
@@ -201,10 +203,10 @@ void VisualizationPanel::_layOutTranscribeButton()
     const auto instrument_count =
         state == AudioLoaded ? static_cast<int>(InstrumentSelection::get(mProcessor->getValueTree()).size()) : 0;
 
-    mTranscribeButton.setLabel(instrument_count == 0 ? juce::String("Transcribe")
+    mTranscribeButton.setLabel(instrument_count == 0 ? nn::tr("Transcribe")
                                : instrument_count == 1
-                                   ? juce::String("Transcribe 1 instrument")
-                                   : "Transcribe " + juce::String(instrument_count) + " instruments",
+                                   ? nn::tr("Transcribe 1 instrument")
+                                   : nn::tr("Transcribe ") + juce::String(instrument_count) + nn::tr(" instruments"),
                                nn::fonts::buttonLabel());
 
     mTranscribeButton.setBounds(roll.withSizeKeepingCentre(mTranscribeButton.getIdealWidth(), nn::metrics::ctaHeight));

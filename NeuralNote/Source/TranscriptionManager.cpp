@@ -9,6 +9,7 @@
 #include "NNFileUtils.h"
 #include "NnGlobalSettings.h"
 #include "NnLogger.h"
+#include "NnLocalisation.h"
 #include "TranscriptionConstants.h"
 
 namespace
@@ -220,21 +221,21 @@ void TranscriptionManager::_handleFinishedJob()
     }
 
     if (mJobOutcome == Outcome::Failed) {
-        String message = reason.isEmpty() ? String("The transcription model could not be loaded or run.")
-                                          : "The transcription model could not be loaded or run: " + reason + ".";
+        String message = reason.isEmpty() ? nn::tr("The transcription model could not be loaded or run.")
+                                          : nn::tr("The transcription model could not be loaded or run: ") + reason + ".";
 
         if (keep) {
-            message += " What was transcribed so far is kept, and can be resumed.";
+            message += nn::tr(" What was transcribed so far is kept, and can be resumed.");
         }
 
-        NativeMessageBox::showMessageBoxAsync(MessageBoxIconType::NoIcon, "Transcription failed.", message);
+        NativeMessageBox::showMessageBoxAsync(MessageBoxIconType::NoIcon, nn::tr("Transcription failed."), message);
     }
 
     if (mJobOutcome == Outcome::CannotResume) {
         NativeMessageBox::showMessageBoxAsync(MessageBoxIconType::NoIcon,
-                                              "Transcription could not be resumed.",
-                                              "The paused transcription does not match the loaded audio. "
-                                              "Transcribe again to start over.");
+                                              nn::tr("Transcription could not be resumed."),
+                                              nn::tr("The paused transcription does not match the loaded audio. "
+                                                     "Transcribe again to start over."));
     }
 }
 
@@ -438,11 +439,11 @@ void TranscriptionManager::resumeTranscription()
 
     // Another checkpoint would continue another model's transcription.
     if (!NNFileUtils::isModelInstalled(*mTranscriptionModelSize)) {
-        const String message = "This transcription was started with the "
+        const String message = nn::tr("This transcription was started with the ")
                                + String(modelSizeToDisplayName(*mTranscriptionModelSize))
-                               + " model. Download it from the model menu to resume.";
+                               + nn::tr(" model. Download it from the model menu to resume.");
         NnLogger::write(NnLogger::Level::Warning, "TranscriptionManager: Model not installed. " + message);
-        NativeMessageBox::showMessageBoxAsync(MessageBoxIconType::NoIcon, "Model not installed.", message);
+        NativeMessageBox::showMessageBoxAsync(MessageBoxIconType::NoIcon, nn::tr("Model not installed."), message);
         return;
     }
 

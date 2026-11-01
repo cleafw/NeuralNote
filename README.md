@@ -1,5 +1,7 @@
 # NeuralNote <img align="right" src="NeuralNote/Assets/Logo/neuralnote-1024.png" width="100" />
 
+本仓库的 Windows 自定义版支持简体中文与 Vulkan GPU 加速。**后续编译必须保留 GPU 支持**，请使用 `Tools/build-windows-gpu.ps1`，并阅读[本机编译与验证要求](docs/WINDOWS_CUSTOM_BUILD.md)。菜单、乐器多选、试听、声相和分轨导出见[操作说明](docs/USER_WORKFLOW.md)。
+
 NeuralNote is the audio plugin that brings **state-of-the-art audio-to-MIDI transcription** into your favorite Digital
 Audio Workstation. See the [website](https://neuralnote.co/).
 

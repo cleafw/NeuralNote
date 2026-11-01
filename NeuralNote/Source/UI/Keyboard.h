@@ -15,10 +15,17 @@
  * roll draws is measured off this component, so restricting the range here is what restricts the
  * roll.
  */
-class Keyboard : public KeyboardComponentBase
+class Keyboard : public KeyboardComponentBase, private juce::Timer, public juce::SettableTooltipClient
 {
 public:
     Keyboard();
+    ~Keyboard() override;
+    std::function<void(int)> onPreviewKey;
+    void mouseDown(const MouseEvent&) override;
+    void mouseDrag(const MouseEvent&) override;
+    void mouseUp(const MouseEvent&) override;
+    int noteAtPosition(juce::Point<float> position) const;
+    void scrollByPixels(float pixels, const MouseEvent& event);
 
     /** Narrows the keyboard to the octaves worth showing. See PianoRollRange for what those are. */
     void setDisplayedRange(const PianoRollRange::DisplayRange& inRange);
@@ -42,6 +49,9 @@ public:
     void scrollByWheel(const MouseEvent& inEvent, const MouseWheelDetails& inWheel);
 
 private:
+    void timerCallback() override;
+    void preview(int note);
+    int mPressedKey = -1;
     void drawKeyboardBackground(Graphics& g, Rectangle<float> area) override;
 
     void drawWhiteKey(int midiNoteNumber, Graphics& g, Rectangle<float> area) override;

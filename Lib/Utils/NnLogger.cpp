@@ -223,6 +223,10 @@ void NnLogger::_writeSessionHeader()
         "RAM: " + juce::String(juce::SystemStats::getMemorySizeInMegabytes()) + " MB",
         "JUCE: " + juce::SystemStats::getJUCEVersion(),
         "Settings: " + settings,
+        "Data directory: " + NNFileUtils::getNeuralNoteDirectory().getFullPathName(),
+        "Small model: " + NNFileUtils::getModelFile(ModelSize::Small).getFullPathName(),
+        "Medium model: " + NNFileUtils::getModelFile(ModelSize::Medium).getFullPathName(),
+        "Large model: " + NNFileUtils::getModelFile(ModelSize::Large).getFullPathName(),
     };
 
     // Written whatever the level, like the end line: they delimit and identify the session.

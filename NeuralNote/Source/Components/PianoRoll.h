@@ -15,6 +15,7 @@
 class PianoRoll
     : public Component
     , public ChangeListener
+    , public juce::SettableTooltipClient
 {
 public:
     PianoRoll(NeuralNoteAudioProcessor* inProcessor, Keyboard& keyboard, double inBaseNumPixelsPerSecond);
@@ -28,6 +29,8 @@ public:
     void changeListenerCallback(ChangeBroadcaster* source) override;
 
     void mouseDown(const MouseEvent& event) override;
+    void mouseDrag(const MouseEvent& event) override;
+    void mouseUp(const MouseEvent& event) override;
 
     void setZoomLevel(double inZoomLevel);
 
@@ -35,6 +38,8 @@ public:
     void updateEnablements();
 
 private:
+    bool mPanning = false;
+    juce::Point<float> mLastPanPosition;
     /** Repaints only the sliver the playhead swept, for the same reason AudioRegion does. */
     void _onVBlankCallback();
 

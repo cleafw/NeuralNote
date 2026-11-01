@@ -22,6 +22,9 @@ class InstrumentStrip : public juce::Component
 public:
     InstrumentStrip(InstrumentMixer& inMixer, int inProgram);
 
+    std::function<void(const juce::MouseEvent&)> onSelect;
+    void mouseDown(const juce::MouseEvent& e) override { if (onSelect) onSelect(e); }
+    void setTrackSelected(bool selected, bool active) { mSelected = selected; mActive = active; repaint(); }
     int getProgram() const { return mProgram; }
 
     /** Takes the note count and range from a fresh rebuild. Does not touch the fader. */
@@ -52,7 +55,10 @@ private:
 
     InstrumentEntry mEntry;
     bool mTranscriptionFinished = false;
+    bool mSelected = false, mActive = false;
+    juce::Slider mPan;
 
+    NnFlatButton mEnableButton {"o"};
     NnFlatButton mMuteButton {"M"};
     NnFlatButton mSoloButton {"S"};
     NnFlatSlider mFader;

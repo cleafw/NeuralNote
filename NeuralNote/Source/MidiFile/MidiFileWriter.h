@@ -37,14 +37,18 @@ struct MidiChannelMap {
  */
 MidiChannelMap buildChannelMap(const std::vector<NoteEvent>& inNoteEvents, MidiOverflowMode inMode);
 
+struct MidiMixSettings { float gainDb = 0; float pan = 0; };
+
 class MidiFileWriter
 {
 public:
+    static std::vector<NoteEvent> selectPrograms(const std::vector<NoteEvent>& notes, const std::vector<int>& programs);
     bool writeMidiFile(const std::vector<NoteEvent>& inNoteEvents,
                        const File& fileToUse,
                        double inExportBpm,
                        double inStartOffsetSeconds,
-                       MidiOverflowMode inOverflowMode) const;
+                       MidiOverflowMode inOverflowMode,
+                       const std::map<int, MidiMixSettings>& mix = {}) const;
 
 private:
     static double _BPMToMicrosecondsPerQuarterNote(double inTempoBPM);

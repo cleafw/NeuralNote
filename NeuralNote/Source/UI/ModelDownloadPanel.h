@@ -68,6 +68,9 @@ private:
     };
 
     void timerCallback() override;
+    void _chooseDownloadDirectory(ModelSize inModelSize);
+    std::unique_ptr<juce::FileChooser> mDirectoryChooser;
+    bool mChoosingDirectory = false;
 
     /**
      * Reads every size's status and shows the controls that fit it.

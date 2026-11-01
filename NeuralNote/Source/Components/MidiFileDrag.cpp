@@ -8,13 +8,14 @@
 #include "NnIcons.h"
 #include "NnLogger.h"
 #include "NnLook.h"
+#include "NnLocalisation.h"
 
 MidiFileDrag::MidiFileDrag(NeuralNoteAudioProcessor* inProcessor)
     : NnFlatButton("DragMidiOut")
     , mProcessor(inProcessor)
 {
     setIcon(nn::icons::downloadStroked, IconStyle::stroked, 13.0f);
-    setLabel("Drag MIDI out", nn::fonts::buttonLabel());
+    setLabel(nn::tr("Drag MIDI out"), nn::fonts::buttonLabel());
     setPadding(12, 12, 7);
 
     // The one accent-outlined control in the window: this is the primary way a transcription
@@ -24,7 +25,7 @@ MidiFileDrag::MidiFileDrag(NeuralNoteAudioProcessor* inProcessor)
     setColour(iconColourId, nn::colours::accentText);
     setColour(textColourId, nn::colours::accentText);
 
-    setTooltip("Drag the transcribed MIDI into your DAW");
+    setTooltip(nn::tr("Drag the transcribed MIDI into your DAW"));
 }
 
 MidiFileDrag::~MidiFileDrag()
@@ -45,7 +46,7 @@ void MidiFileDrag::mouseDown(const juce::MouseEvent& inEvent)
     if (!NNFileUtils::ensureDirectoryExists(mTempDirectory)) {
         NnLogger::write(NnLogger::Level::Error, "MidiFileDrag: Temporary directory for midi file failed.");
         juce::NativeMessageBox::showMessageBoxAsync(
-            juce::MessageBoxIconType::NoIcon, "Error", "Temporary directory for midi file failed.");
+            juce::MessageBoxIconType::NoIcon, nn::tr("Error"), nn::tr("Temporary directory for midi file failed."));
         return;
     }
 
@@ -65,7 +66,7 @@ void MidiFileDrag::mouseDown(const juce::MouseEvent& inEvent)
     if (!success) {
         NnLogger::write(NnLogger::Level::Error, "MidiFileDrag: Could not create the midi file.");
         juce::NativeMessageBox::showMessageBoxAsync(
-            juce::MessageBoxIconType::NoIcon, "Error", "Could not create the midi file.");
+            juce::MessageBoxIconType::NoIcon, nn::tr("Error"), nn::tr("Could not create the midi file."));
         return;
     }
 

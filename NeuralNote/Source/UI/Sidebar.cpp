@@ -15,6 +15,7 @@
 #include "NnLook.h"
 #include "Player.h"
 #include "PluginProcessor.h"
+#include "NnLocalisation.h"
 
 namespace
 {
@@ -50,7 +51,7 @@ void paintMasterPanel(juce::Graphics& g, juce::Rectangle<int> inBounds)
 
     g.setColour(nn::colours::textLabel);
     nn::drawTrackedText(g,
-                        "MASTER",
+                        nn::tr("MASTER"),
                         nn::fonts::sectionHeader(),
                         label_row.toFloat(),
                         juce::Justification::centredLeft,
@@ -62,6 +63,7 @@ void paintMasterPanel(juce::Graphics& g, juce::Rectangle<int> inBounds)
 void Sidebar::StripList::resized()
 {
     int y = 0;
+    if (source) { source->setBounds(0,y,getWidth(),nn::metrics::stripHeight); y += nn::metrics::stripHeight; }
 
     for (const std::unique_ptr<InstrumentStrip>& strip: strips) {
         strip->setBounds(0, y, getWidth(), nn::metrics::stripHeight);
@@ -72,6 +74,13 @@ void Sidebar::StripList::resized()
 Sidebar::Sidebar(NeuralNoteAudioProcessor& inProcessor)
     : mProcessor(inProcessor)
 {
+    setWantsKeyboardFocus(true);
+    const auto storedSelection = mProcessor.getValueTree().getProperty("selectedTrackPrograms");
+    for (const auto& value : juce::StringArray::fromTokens(storedSelection.toString(), ",", ""))
+        if (value.isNotEmpty()) mSelected.insert(value.getIntValue());
+    mStripList.source = std::make_unique<InstrumentStrip>(*mProcessor.getInstrumentMixer(), SOURCE_AUDIO_TRACK);
+    mStripList.addAndMakeVisible(*mStripList.source);
+    refreshSourceStrip();
     mViewport.setViewedComponent(&mStripList, false);
     mViewport.setScrollBarsShown(true, false);
     addAndMakeVisible(mViewport);
@@ -82,7 +91,7 @@ Sidebar::Sidebar(NeuralNoteAudioProcessor& inProcessor)
     mAddButton.setColour(NnFlatButton::iconColourId, nn::colours::textIconSoft);
     mAddButton.setColour(NnFlatButton::backgroundOnColourId, nn::colours::accentFillToggle());
     mAddButton.setColour(NnFlatButton::iconOnColourId, nn::colours::accentText);
-    mAddButton.setTooltip(NeuralNoteTooltips::add_instrument);
+    mAddButton.setTooltip(nn::tr(NeuralNoteTooltips::add_instrument));
     mAddButton.setWantsKeyboardFocus(false);
     mAddButton.onClick = [this] {
         if (onAddInstrument != nullptr) {
@@ -110,6 +119,7 @@ Sidebar::~Sidebar()
 
 void Sidebar::updateEnablements()
 {
+    refreshSourceStrip();
     // The selection only takes effect when a run starts -- the library treats it as a decoder
     // constraint rather than a filter -- so the button goes away once there are notes.
     mAddButton.setVisible(!mProcessor.hasTranscription());
@@ -134,7 +144,7 @@ void Sidebar::resized()
     mMasterMeter.setBounds(masterMeterBounds(mMasterBounds));
 
     mViewport.setBounds(bounds);
-    mStripList.setSize(bounds.getWidth(), static_cast<int>(mStripList.strips.size()) * nn::metrics::stripHeight);
+    mStripList.setSize(bounds.getWidth(), (static_cast<int>(mStripList.strips.size()) + 1) * nn::metrics::stripHeight);
 }
 
 void Sidebar::paint(juce::Graphics& g)
@@ -153,6 +163,7 @@ void Sidebar::changeListenerCallback(juce::ChangeBroadcaster* inSource)
     }
 
     _rebuildStrips();
+    refreshSourceStrip();
     repaint();
 }
 
@@ -160,6 +171,15 @@ void Sidebar::valueTreePropertyChanged(juce::ValueTree& inTree, const juce::Iden
 {
     juce::ignoreUnused(inTree);
 
+    if (inProperty == juce::Identifier("selectedTrackPrograms")) {
+        mSelected.clear();
+        for (const auto& value : juce::StringArray::fromTokens(inTree.getProperty(inProperty).toString(), ",", ""))
+            if (value.isNotEmpty()) mSelected.insert(value.getIntValue());
+        for (auto& strip : mStripList.strips) strip->setTrackSelected(mSelected.contains(strip->getProgram()), strip->getProgram() == (int)inTree.getProperty("activePreviewProgram", 0));
+    }
+    if (inProperty == juce::Identifier("activePreviewProgram")) {
+        for (auto& strip : mStripList.strips) strip->setTrackSelected(mSelected.contains(strip->getProgram()), strip->getProgram() == (int)inTree.getProperty(inProperty));
+    }
     if (inProperty == NnId::SelectedInstrumentGroupsId) {
         // Also the path a session reload takes, so the restored selection reaches the strips.
         _pushSelectionToMixer();
@@ -219,6 +239,7 @@ void Sidebar::_onVBlankCallback(double inTimestampSeconds)
                      : juce::Decibels::gainToDecibels(std::sqrt(inMeanSquare), MeterScale::METER_MIN_DB);
     };
 
+    mStripList.source->updateMeter(level_db(player->getSourceMeterMeanSquare()), dt);
     const InstrumentSynth* const synth = player->getInstrumentSynth();
 
     for (const std::unique_ptr<InstrumentStrip>& strip: mStripList.strips) {
@@ -246,6 +267,7 @@ void Sidebar::_rebuildStrips()
 
         for (const InstrumentEntry& entry: entries) {
             auto strip = std::make_unique<InstrumentStrip>(*mProcessor.getInstrumentMixer(), entry.program);
+            strip->onSelect = [this, program = entry.program](const juce::MouseEvent& e) { trackClicked(program, e); };
             mStripList.addAndMakeVisible(*strip);
             mStripList.strips.push_back(std::move(strip));
         }
@@ -257,7 +279,8 @@ void Sidebar::_rebuildStrips()
         mStripList.strips[i]->refreshFromMixer();
     }
 
-    mStripList.setSize(mViewport.getWidth(), static_cast<int>(mStripList.strips.size()) * nn::metrics::stripHeight);
+    mStripList.setSize(mViewport.getWidth(), (static_cast<int>(mStripList.strips.size()) + 1) * nn::metrics::stripHeight);
+    updateTrackSelection();
 }
 
 void Sidebar::_paintHeader(juce::Graphics& g, juce::Rectangle<int> inBounds) const
@@ -272,13 +295,80 @@ void Sidebar::_paintHeader(juce::Graphics& g, juce::Rectangle<int> inBounds) con
 
     g.setColour(nn::colours::textLabel);
     nn::drawTrackedText(
-        g, "INSTRUMENTS", nn::fonts::sectionHeader(), content, juce::Justification::centredLeft, HEADER_TRACKING);
+        g, nn::tr("TRACKS"), nn::fonts::sectionHeader(), content, juce::Justification::centredLeft, HEADER_TRACKING);
 
     g.setColour(nn::colours::textFainter);
     g.setFont(nn::fonts::mono(10.0f, 400));
     const int right_trim = mAddButton.isVisible() ? PADDING_SIDE + ADD_BUTTON_SIZE + HEADER_GAP : PADDING_SIDE;
 
-    g.drawText(juce::String(mProcessor.getInstrumentMixer()->getEntries().size()),
+    g.drawText(juce::String(mProcessor.getInstrumentMixer()->getEntries().size() + 1),
                inBounds.withTrimmedRight(right_trim),
                juce::Justification::centredRight);
+}
+
+void Sidebar::updateTrackSelection()
+{
+    const auto* mixer = mProcessor.getInstrumentMixer();
+    std::erase_if(mSelected, [mixer](int p) { return mixer->findEntry(p) == nullptr; });
+    int active = (int)mProcessor.getValueTree().getProperty("activePreviewProgram", -1);
+    if (!mixer->findEntry(active)) {
+        active = mixer->getEntries().empty() ? 0 : mixer->getEntries().front().program;
+        mProcessor.getValueTree().setProperty("activePreviewProgram", active, nullptr);
+    }
+    juce::StringArray values;
+    for (int p : mSelected) values.add(juce::String(p));
+    mProcessor.getValueTree().setProperty("selectedTrackPrograms", values.joinIntoString(","), nullptr);
+    for (auto& strip : mStripList.strips) strip->setTrackSelected(mSelected.contains(strip->getProgram()), strip->getProgram() == active);
+}
+void Sidebar::selectTrack(int program, const juce::ModifierKeys& mods)
+{
+    const auto& entries = mProcessor.getInstrumentMixer()->getEntries();
+    if (mods.isShiftDown() && mAnchor >= 0) {
+        int first = -1, last = -1;
+        for (int i = 0; i < (int)entries.size(); ++i) { if (entries[i].program == mAnchor) first = i; if (entries[i].program == program) last = i; }
+        if (!mods.isCommandDown()) mSelected.clear();
+        if (first >= 0 && last >= 0) for (int i = std::min(first,last); i <= std::max(first,last); ++i) mSelected.insert(entries[i].program);
+        else mSelected.insert(program);
+    } else {
+        if (!mods.isCommandDown()) mSelected.clear();
+        if (mods.isCommandDown() && mSelected.contains(program)) mSelected.erase(program); else mSelected.insert(program);
+        mAnchor = program;
+    }
+    mProcessor.getValueTree().setProperty("activePreviewProgram", program, nullptr);
+    mProcessor.getPlayer()->refreshPreviewInstrument();
+    updateTrackSelection();
+}
+void Sidebar::trackClicked(int program, const juce::MouseEvent& e)
+{
+    grabKeyboardFocus();
+    if (!e.mods.isPopupMenu() || !mSelected.contains(program)) selectTrack(program, e.mods);
+    else { mProcessor.getValueTree().setProperty("activePreviewProgram", program, nullptr); mProcessor.getPlayer()->refreshPreviewInstrument(); updateTrackSelection(); }
+    if (!e.mods.isPopupMenu()) return;
+    juce::PopupMenu menu;
+    const auto selected = getSelectedPrograms();
+    const bool idle = mProcessor.getState() != Processing && mProcessor.getState() != Recording;
+    const bool hasNotes = idle && mProcessor.getInstrumentMixer()->findEntry(program)->hasNotes();
+    bool anyNotes = false;
+    for (int p : selected) if (auto* entry = mProcessor.getInstrumentMixer()->findEntry(p)) anyNotes |= entry->hasNotes();
+    const juce::Component::SafePointer<Sidebar> safe(this);
+    menu.addItem(nn::tr("Export this instrument MIDI"), hasNotes, false, [safe,program] { if(safe && safe->onExportTracks) safe->onExportTracks({program}, false); });
+    menu.addItem(nn::tr("Export selected MIDI"), idle && anyNotes, false, [safe,selected] { if(safe && safe->onExportTracks) safe->onExportTracks(selected, false); });
+    menu.addItem(nn::tr("Export selected separately"), idle && anyNotes, false, [safe,selected] { if(safe && safe->onExportTracks) safe->onExportTracks(selected, true); });
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(juce::Rectangle<int>(e.getScreenX(), e.getScreenY(), 1, 1)));
+}
+bool Sidebar::keyPressed(const juce::KeyPress& key)
+{
+    if (key.getModifiers().isCommandDown() && key.getKeyCode() == 'A') {
+        for (const auto& e : mProcessor.getInstrumentMixer()->getEntries()) mSelected.insert(e.program);
+        updateTrackSelection(); return true;
+    }
+    return false;
+}
+
+void Sidebar::refreshSourceStrip()
+{
+    InstrumentEntry source {SOURCE_AUDIO_TRACK, "Source audio", "SRC", nn::colours::accentText};
+    source.noteCount = mProcessor.getSourceAudioManager()->getAudioSampleDuration() > 0 ? 1 : 0;
+    mStripList.source->setEntry(source);
+    mStripList.source->refreshFromMixer();
 }

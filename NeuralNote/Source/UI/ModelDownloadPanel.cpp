@@ -11,6 +11,7 @@
 #include "NnIcons.h"
 #include "NnLook.h"
 #include "PluginProcessor.h"
+#include "NnLocalisation.h"
 
 namespace
 {
@@ -48,7 +49,7 @@ constexpr float ICON_SIZE = 13.0f;
 constexpr float BAR_CORNER = 2.0f;
 constexpr int POLL_HZ = 10;
 
-const juce::String VERIFYING_CAPTION = "VERIFYING";
+constexpr const char* VERIFYING_CAPTION = "VERIFYING";
 constexpr float CAPTION_TRACKING = 0.06f;
 
 /** Relative to the other sizes: they are the same model at three scales. */
@@ -56,11 +57,11 @@ juce::String hintFor(ModelSize inModelSize)
 {
     switch (inModelSize) {
         case ModelSize::Small:
-            return "Fastest";
+            return nn::tr("Fastest");
         case ModelSize::Medium:
-            return "Recommended";
+            return nn::tr("Recommended");
         case ModelSize::Large:
-            return "Largest, slowest";
+            return nn::tr("Largest, slowest");
     }
 
     return {};
@@ -111,15 +112,14 @@ ModelDownloadPanel::ModelDownloadPanel(NeuralNoteAudioProcessor& inProcessor)
         row->downloadButton.setColour(NnFlatButton::textColourId, nn::colours::ctaText);
         row->downloadButton.setWantsKeyboardFocus(false);
         row->downloadButton.onClick = [this, size] {
-            mProcessor.getModelDownloader().start(size);
-            timerCallback();
+            _chooseDownloadDirectory(size);
         };
         addChildComponent(row->downloadButton);
 
         row->cancelButton.setIcon(
             nn::icons::crossStroked, NnFlatButton::IconStyle::stroked, nn::metrics::cancelGlyphSize);
         row->cancelButton.setCornerRadius(4.0f);
-        row->cancelButton.setTooltip(NeuralNoteTooltips::stop_model_download);
+        row->cancelButton.setTooltip(nn::tr(NeuralNoteTooltips::stop_model_download));
         row->cancelButton.setWantsKeyboardFocus(false);
         row->cancelButton.onClick = [this, size] { mProcessor.getModelDownloader().cancel(size); };
         addChildComponent(row->cancelButton);
@@ -129,7 +129,7 @@ ModelDownloadPanel::ModelDownloadPanel(NeuralNoteAudioProcessor& inProcessor)
 
     mCloseButton.setIcon(nn::icons::crossStroked, NnFlatButton::IconStyle::stroked, nn::metrics::cancelGlyphSize);
     mCloseButton.setCornerRadius(4.0f);
-    mCloseButton.setTooltip("Close");
+    mCloseButton.setTooltip(nn::tr("Close"));
     mCloseButton.setWantsKeyboardFocus(false);
     mCloseButton.onClick = [this] {
         if (onCloseRequested != nullptr) {
@@ -139,7 +139,7 @@ ModelDownloadPanel::ModelDownloadPanel(NeuralNoteAudioProcessor& inProcessor)
     addAndMakeVisible(mCloseButton);
 
     mOpenFolderButton.setIcon(nn::icons::folderStroked, NnFlatButton::IconStyle::stroked, ICON_SIZE);
-    mOpenFolderButton.setLabel("Open models folder", nn::fonts::buttonLabel());
+    mOpenFolderButton.setLabel(nn::tr("Open models folder"), nn::fonts::buttonLabel());
     mOpenFolderButton.setPadding(10, 12, 7);
     mOpenFolderButton.setCornerRadius(static_cast<float>(nn::metrics::controlCorner));
     mOpenFolderButton.setColour(NnFlatButton::backgroundColourId, nn::colours::popupRowHover);
@@ -147,7 +147,12 @@ ModelDownloadPanel::ModelDownloadPanel(NeuralNoteAudioProcessor& inProcessor)
     mOpenFolderButton.setColour(NnFlatButton::iconColourId, nn::colours::textIcon);
     mOpenFolderButton.setColour(NnFlatButton::textColourId, nn::colours::textButton);
     mOpenFolderButton.setWantsKeyboardFocus(false);
-    mOpenFolderButton.onClick = [] { NNFileUtils::openDirectory(NNFileUtils::getModelsDirectory()); };
+    mOpenFolderButton.onClick = [] {
+        const auto size = NnGlobalSettings::getModelSize();
+        NNFileUtils::openDirectory(NNFileUtils::isModelInstalled(size)
+                                      ? NNFileUtils::getModelDirectory(size)
+                                      : NNFileUtils::prepareModelDownloadDirectory(size));
+    };
     addAndMakeVisible(mOpenFolderButton);
 
     mHasInstalledModel = NNFileUtils::isAnyModelInstalled();
@@ -155,6 +160,40 @@ ModelDownloadPanel::ModelDownloadPanel(NeuralNoteAudioProcessor& inProcessor)
 
     // Also while hidden: noticing the last checkpoint disappear is what brings the panel back.
     startTimerHz(POLL_HZ);
+}
+
+void ModelDownloadPanel::_chooseDownloadDirectory(ModelSize inModelSize)
+{
+    if (mChoosingDirectory || mProcessor.getModelDownloader().getStatus(inModelSize).isBusy()) {
+        return;
+    }
+    const auto initial = NNFileUtils::prepareModelDownloadDirectory(inModelSize);
+    mDirectoryChooser = std::make_unique<juce::FileChooser>(
+        nn::tr("Choose model download folder"), initial, "", true);
+    mChoosingDirectory = true;
+    const juce::Component::SafePointer<ModelDownloadPanel> safeThis(this);
+    mDirectoryChooser->launchAsync(
+        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+        [safeThis, inModelSize](const juce::FileChooser& chooser) {
+            if (safeThis == nullptr) {
+                return;
+            }
+            safeThis->mChoosingDirectory = false;
+            const auto directory = chooser.getResult();
+            if (directory == juce::File()) {
+                return;
+            }
+            if (safeThis->mProcessor.getModelDownloader().getStatus(inModelSize).isBusy()) {
+                return;
+            }
+            if (!NNFileUtils::setModelDirectory(inModelSize, directory)) {
+                juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon,
+                    nn::tr("Model download"), nn::tr("Could not save the model folder. Please choose a writable folder."));
+                return;
+            }
+            safeThis->mProcessor.getModelDownloader().start(inModelSize);
+            safeThis->timerCallback();
+        });
 }
 
 int ModelDownloadPanel::getIdealWidth()
@@ -219,9 +258,9 @@ bool ModelDownloadPanel::_updateRows(bool inForce)
     for (auto& row: mRows) {
         const ModelDownloader::Status& status = row->status;
 
-        row->downloadButton.setLabel(status.phase == ModelDownloader::Phase::Failed ? "Retry"
-                                     : status.downloadedBytes > 0                   ? "Resume"
-                                                                                    : "Download",
+        row->downloadButton.setLabel(status.phase == ModelDownloader::Phase::Failed ? nn::tr("Retry")
+                                     : status.downloadedBytes > 0                   ? nn::tr("Resume")
+                                                                                    : nn::tr("Download"),
                                      nn::fonts::buttonLabel());
         row->downloadButton.setVisible(!row->isInstalled && !status.isBusy());
         row->cancelButton.setVisible(!row->isInstalled && status.phase == ModelDownloader::Phase::Downloading);
@@ -277,14 +316,14 @@ void ModelDownloadPanel::paint(juce::Graphics& g)
 
     g.setColour(nn::colours::textPrimary);
     g.setFont(nn::fonts::filename());
-    g.drawText(mHasInstalledModel ? "Transcription model" : "No transcription model installed",
+    g.drawText(mHasInstalledModel ? nn::tr("Transcription model") : nn::tr("No transcription model installed"),
                header.removeFromTop(TITLE_HEIGHT).withTrimmedRight(nn::metrics::cancelHitSize + CONTROL_GAP),
                juce::Justification::centredLeft,
                true);
 
     g.setColour(nn::colours::textLabel);
     g.setFont(nn::fonts::menuItem());
-    g.drawText(mHasInstalledModel ? "Tick the model to transcribe with." : "Download a model to start transcribing.",
+    g.drawText(mHasInstalledModel ? nn::tr("Tick the model to transcribe with.") : nn::tr("Download a model to start transcribing."),
                header.removeFromTop(SUBTITLE_HEIGHT),
                juce::Justification::centredLeft,
                true);
@@ -345,7 +384,7 @@ void ModelDownloadPanel::paint(juce::Graphics& g)
 
             g.setColour(nn::colours::progressText);
             nn::drawTrackedText(g,
-                                VERIFYING_CAPTION,
+                                nn::tr(VERIFYING_CAPTION),
                                 nn::fonts::statusBar(),
                                 column.toFloat(),
                                 juce::Justification::centredRight,
@@ -359,7 +398,7 @@ void ModelDownloadPanel::paint(juce::Graphics& g)
                     : row.isInstalled ? nn::colours::popupItem
                                       : nn::colours::textLabel);
         g.setFont(row.isInUse ? nn::fonts::menuItemTicked() : nn::fonts::instrumentName());
-        g.drawText(modelSizeToDisplayName(row.modelSize),
+        g.drawText(nn::tr(modelSizeToDisplayName(row.modelSize)),
                    text.withTrimmedTop(ROW_NAME_TOP).withHeight(ROW_LINE_HEIGHT),
                    juce::Justification::centredLeft,
                    true);
@@ -369,7 +408,7 @@ void ModelDownloadPanel::paint(juce::Graphics& g)
         const juce::String separator = "  " + nn::separatorDot() + "  ";
 
         const juce::String meta = failed ? status.errorMessage
-                                  : busy ? formatSize(status.downloadedBytes) + " of " + formatSize(status.totalBytes)
+                                  : busy ? formatSize(status.downloadedBytes) + nn::tr(" of ") + formatSize(status.totalBytes)
                                          : formatSize(status.totalBytes) + separator + hintFor(row.modelSize);
 
         g.setColour(failed ? nn::colours::warn : nn::colours::textFaint);

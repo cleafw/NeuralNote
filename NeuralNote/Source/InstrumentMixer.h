@@ -19,6 +19,8 @@ class NeuralNoteAudioProcessor;
  * picked for the next run and which has produced nothing yet -- `noteCount == 0` is what tells
  * them apart.
  */
+inline constexpr int SOURCE_AUDIO_TRACK = -1;
+
 struct InstrumentEntry {
     int program = 0; // 0-127, or msl::DRUM_PROGRAM
     juce::String name;
@@ -96,6 +98,8 @@ public:
     juce::Colour colourForProgram(int inProgram) const;
 
     float getGainDb(int inProgram) const;
+    float getPan(int program) const;
+    void setPan(int program, float pan);
     bool isMuted(int inProgram) const;
     bool isSoloed(int inProgram) const;
 

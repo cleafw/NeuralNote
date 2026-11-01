@@ -8,12 +8,13 @@
 #include "InstrumentSelection.h"
 #include "NnFonts.h"
 #include "NnLook.h"
+#include "NnLocalisation.h"
 #include "PluginProcessor.h"
 
 namespace
 {
-const juce::String TITLE = "ADD INSTRUMENT";
-const juce::String FOOTER = "TICK TO INCLUDE IN TRANSCRIPTION";
+constexpr const char* TITLE = "ADD INSTRUMENT";
+constexpr const char* FOOTER = "TICK TO INCLUDE IN TRANSCRIPTION";
 
 constexpr float TITLE_TRACKING = 0.13f;
 constexpr float FOOTER_TRACKING = 0.04f;
@@ -27,7 +28,7 @@ InstrumentMenu::InstrumentMenu(NeuralNoteAudioProcessor& inProcessor)
 {
     // Nothing is selected by default and that means the model chooses, which is worth naming rather
     // than leaving as the state you get by unticking everything.
-    mEntries.push_back({"Automatic (any instrument)", std::nullopt});
+    mEntries.push_back({nn::tr("Automatic (any instrument)"), std::nullopt});
 
     for (const msl::InstrumentGroup group: msl::allInstrumentGroups()) {
         mEntries.push_back({instrumentDisplayForGroup(group).name, group});
@@ -84,7 +85,7 @@ void InstrumentMenu::paint(juce::Graphics& g)
 
     g.setColour(nn::colours::popupTitle);
     nn::drawTrackedText(g,
-                        TITLE,
+                        nn::tr(TITLE),
                         nn::fonts::sectionHeader(),
                         header.reduced(nn::metrics::menuPadX, 0).toFloat(),
                         juce::Justification::centredLeft,
@@ -113,7 +114,7 @@ void InstrumentMenu::paint(juce::Graphics& g)
 
     g.setColour(nn::colours::textFainter);
     nn::drawTrackedText(g,
-                        FOOTER,
+                        nn::tr(FOOTER),
                         nn::fonts::meta(),
                         footer.reduced(nn::metrics::menuPadX, 0).toFloat(),
                         juce::Justification::centredLeft,
@@ -202,7 +203,7 @@ void InstrumentMenu::RowList::paint(juce::Graphics& g)
 
         g.setColour(ticked ? nn::colours::popupItemTicked : nn::colours::popupItem);
         g.setFont(ticked ? nn::fonts::menuItemTicked() : nn::fonts::menuItem());
-        g.drawText(entry.name, row.withTrimmedRight(nn::metrics::menuPadX), juce::Justification::centredLeft, true);
+        g.drawText(nn::tr(entry.name), row.withTrimmedRight(nn::metrics::menuPadX), juce::Justification::centredLeft, true);
     }
 }
 
