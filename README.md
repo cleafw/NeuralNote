@@ -1,238 +1,138 @@
-# NeuralNote <img align="right" src="NeuralNote/Assets/Logo/neuralnote-1024.png" width="100" />
+# NeuralNote 中文增强版
 
-本仓库的 Windows 自定义版支持简体中文与 Vulkan GPU 加速。**后续编译必须保留 GPU 支持**，请使用 `Tools/build-windows-gpu.ps1`，并阅读[本机编译与验证要求](docs/WINDOWS_CUSTOM_BUILD.md)。菜单、乐器多选、试听、声相和分轨导出见[操作说明](docs/USER_WORKFLOW.md)。
+**简体中文** · [English](README_EN.md)
 
-NeuralNote is the audio plugin that brings **state-of-the-art audio-to-MIDI transcription** into your favorite Digital
-Audio Workstation. See the [website](https://neuralnote.co/).
+把音频转成按乐器分轨的 MIDI，在本地完成转录、试听与导出。
 
-> [!NOTE]
-> 🎉 **NeuralNote v2 is out!** Download it from the [website](https://neuralnote.co/#download) or the [releases page](https://github.com/DamRsn/NeuralNote/releases).
->
-> Testing so far covers only a few machines and GPUs. Whether something breaks or works great on your hardware,
-> please tell us in [GitHub issues](https://github.com/DamRsn/NeuralNote/issues) (see [Hardware](#models-and-performance)).
+本仓库是 [DamRsn/NeuralNote](https://github.com/DamRsn/NeuralNote) 的社区修改版，由 [cleafw](https://github.com/cleafw) 维护。基于 NeuralNote v2，增加中文界面、乐器多选与分轨导出、原声和乐器独立播放、重新生成 MIDI，以及更适合桌面使用的窗口与菜单操作。模型采用 [MuScriptor](https://github.com/muscriptor/muscriptor)，通过 [muscriptor.cpp](https://github.com/DamRsn/muscriptor.cpp) 在本机运行。
 
-## What's new in v2
+[下载与版本记录](https://github.com/cleafw/NeuralNote/releases) · [反馈问题](https://github.com/cleafw/NeuralNote/issues) · [详细操作说明](docs/USER_WORKFLOW.md) · [Windows GPU 编译说明](docs/WINDOWS_CUSTOM_BUILD.md)
 
-- **A new, much more capable transcription model.** v2 replaces Spotify's Basic Pitch with
-  [MuScriptor](https://github.com/muscriptor/muscriptor), from Kyutai and Mirelo
-  ([paper](https://arxiv.org/abs/2607.08168v1), [blog post](https://kyutai.org/blog/2026-07-10-muscriptor/),
-  [checkpoints](https://huggingface.co/MuScriptor)). It is a transformer with 103M to 1.4B parameters, compared with
-  fewer than 17K for Basic Pitch.
-- **Multi-instrument transcription.** Transcribe full mixes, not just one instrument at a time, with notes
-  grouped by instrument.
-- **A built-in multi-instrument synth.** Listen to every transcribed instrument, with per-instrument gain, mute and
-  solo.
-- **A new, modern UI.**
-- **Still fully local.** Transcription runs on your machine, on the GPU or the CPU, and your audio never leaves it.
-  NeuralNote only goes online to download models and to check for updates.
+![NeuralNote 中文界面：原声与乐器音轨、波形和多乐器 MIDI 钢琴卷帘](docs/images/neuralnote-zh-transcription.png)
 
-![UI](NeuralNote_UI.png)
+## 功能
 
-## Install
+- **中文与英文界面**：默认跟随系统语言，支持在“选项 → 语言”切换；未支持的系统语言回退英文。
+- **多乐器转录**：音符按乐器显示，可自动识别乐器，或在转录前选择乐器范围。
+- **本地处理**：音频转录在电脑上运行；下载模型、检查更新时需要联网。
+- **GPU 加速**：当前 Windows 自定义版保留 Vulkan GPU 后端，也可以选择 CPU；已在 RTX 3060 12 GB 上运行验证。
+- **独立混音**：原声和各乐器分别控制播放、音量、声相、静音与独奏。
+- **按音色试听**：点击乐器行后，左侧琴键使用该乐器音色试听；鼓组按对应键位发声。
+- **灵活导出**：导出全部、单个或多个选中乐器；保存为多轨 MIDI，或每个乐器一个 MIDI 文件；可选择写入音量和声相。
+- **重新生成 MIDI**：保留原音频，确认替换结果后使用当前模型重新转录。
+- **桌面操作**：波形左键拖动定位，钢琴窗中键平移；窗口尺寸与界面缩放分开；独立程序支持最大化和 F11 全屏。
 
-Download the latest release for your platform from the [website](https://neuralnote.co/#download) or 
-[releases page](https://github.com/DamRsn/NeuralNote/releases).
+## 下载与平台状态
 
-- **macOS:** `NeuralNote_Installer_Mac_arm64.pkg` for Apple Silicon, `NeuralNote_Installer_Mac_x64.pkg` for Intel Macs.
-  Both install the Standalone app, VST3 and AU, and are signed and notarized.
-- **Windows (x64):** `NeuralNote_Installer_Windows_x64.exe` installs the Standalone app and VST3. It is not code signed,
-  so Windows may warn you before running it for the first time.
-- **Linux:** prebuilt binaries are coming soon. In the meantime, you can [build from source](#build-from-source).
+请从**本仓库的 [Releases](https://github.com/cleafw/NeuralNote/releases)** 获取修改版。原作者网站及原作者的 Releases 提供的是上游版本，可能不包含这里的中文与功能修改。
 
-The transcription model is not included. Download it from within NeuralNote the first time you open it (see
-[Models and performance](#models-and-performance)).
+| 平台 | 当前修改版的状态 |
+| --- | --- |
+| Windows x64 | 已在本机编译并验证 Vulkan GPU 独立程序；可下载的安装包以本仓库 Releases 附件为准 |
+| macOS Apple Silicon / Intel | 项目包含构建流程；当前修改版尚未完成这两个平台的实际运行验证 |
+| Linux | 项目支持源码构建；当前修改版尚未完成 Linux 打包与运行验证 |
 
-## Usage
+如果 Releases 中没有对应平台的安装包，可以先按下文从源码编译。**本文不表示各平台安装包均已发布，也不表示 Mac 包已经签名或公证。**
 
-NeuralNote is a simple AudioFX plugin (VST®3/AU/Standalone app) that you apply to the track you want to transcribe.
+模型不包含在程序中，首次使用需要单独下载。中文与英文使用同一个程序，无需为切换语言重复下载软件。
 
-- Gather some audio:
-  - Click record. This works both when recording live and when playing the track in your DAW.
-  - Or drop an audio file on the plugin (.wav, .aiff, .flac, .mp3 and .ogg (vorbis) are supported).
-- Select the instruments to transcribe in the left panel, or select `Automatic` to let the model detect them.
-  - Transcriptions tend to be better when the model is given the correct set of instruments.
-- Click `Transcribe`. The transcription runs in the background, and the MIDI fills into the piano roll as it is
-  decoded. A progress bar is shown while it runs.
-  - Pause it with the button next to the progress bar, and resume it later from where it stopped, even after closing
-    and reopening the plugin or your DAW session. The bin button discards the transcription.
-- Click play to listen to the result without waiting for the transcription to finish. Only the part decoded so far
-  plays.
-  - Adjust the mix between the source audio and the synthesized transcription.
-  - Adjust the level of each instrument.
-- When you're happy with the result, drag and drop the MIDI from the plugin onto a MIDI track, or save the MIDI file
-  to your computer.
+## 快速开始
 
-## Models and performance
+1. 打开软件，在“选项 → 音频/MIDI 设置”中选择实际连接耳机或音箱的输出设备。
+2. 从顶部模型入口下载模型。下载前会弹出目录选择窗口，确认后下载到该位置，下载完成即可使用，无需解压。
+3. 加载音频文件或直接拖入波形区域。支持 WAV、AIFF、FLAC、MP3 和 Ogg Vorbis；也可通过录音获取音频。
+4. 选择自动识别或指定待转录乐器，点击“转录”。可以暂停并稍后继续，转录结果会逐步显示。
+5. 点击播放，通过侧栏“原声”和各乐器行的播放开关、M（静音）、S（独奏）进行对比试听。
+6. 从“文件”菜单或乐器行右键菜单导出 MIDI；也可以把“拖出 MIDI”按钮拖到 DAW 的 MIDI 音轨中。
 
-MuScriptor comes in three sizes, `small`, `medium` and `large`, which trade speed for quality. NeuralNote downloads
-them as GGUF files from [`DamRsn/muscriptor-gguf`](https://huggingface.co/DamRsn/muscriptor-gguf) on Hugging Face.
-When no model is installed, all three sizes are available to download. The Model button in the top bar lets you
-switch between installed models, download other sizes, and open the folder where they are stored.
+### 重新生成与播放定位
 
-| OS      | Models folder                 |
-| ------- | ----------------------------- |
-| macOS   | `~/Library/NeuralNote/models` |
-| Windows | `%APPDATA%\NeuralNote\models` |
-| Linux   | `~/.config/NeuralNote/models` |
+更换模型后，点击波形上方的“重新生成 MIDI”，或从“文件”菜单、波形右键菜单选择同名选项。已有结果会先询问是否替换；需要保留时，请先导出。原音频会保留，录音或转录过程中不能重复启动。
 
-The downloads are about 210 MB for `small`, 620 MB for `medium` and 2.7 GB for `large`.
+在波形上按住左键拖动可连续调整播放位置。在钢琴窗内按住中键可上下移动音高视图、左右移动时间视图。按住左侧琴键试听，松开停止。
 
-You can also put a model file in that folder by hand. Use a file from `v1/` of the
-[HF repo](https://huggingface.co/DamRsn/muscriptor-gguf), unchanged and with its original name (e.g.
-`muscriptor-medium-f16.gguf`). NeuralNote only picks up files whose name and size match the ones it downloads.
+### 选择与导出乐器
 
-You can remove a model by deleting it from this folder, and re-download it at any time.
+单击乐器行单选，Ctrl 点击增减选择，Shift 点击连续选择，Ctrl+A 全选。轨道选择不改变下一次转录的乐器配置。右键可导出此乐器、所选乐器的多轨 MIDI，或把所选乐器分别导出。静音与独奏控制试听，不决定 MIDI 的导出范围。
 
-**Hardware.** Transcription speed depends mostly on the model size and on your hardware. The GPU is used when available,
-through Metal on macOS and Vulkan on Windows and Linux. A GPU is strongly recommended for the `medium` and `large` models.
-**Settings > Compute device** picks the device: Auto (the default, which names the device it chose), a specific GPU, or
-the CPU. The choice applies from the next transcription, and GPUs added or removed later are listed after restarting
-NeuralNote (or your DAW). Only a few GPUs have been tested so far. If transcription fails, gives wrong results or is
-unexpectedly slow on your machine, please open an issue, either [here](https://github.com/DamRsn/NeuralNote/issues) or
-in [muscriptor.cpp](https://github.com/DamRsn/muscriptor.cpp/issues) if the problem is in the engine itself. Please
-include your OS, GPU and model size.
+更多菜单、会话、声相与导出说明见 [操作说明](docs/USER_WORKFLOW.md)。
 
-Approximate real-time factors measured on an Apple M1 Pro (above 1× means faster than real time):
+## 中文界面截图
 
-| Size     | GPU (Metal) | CPU             |
-| -------- | ----------- | --------------- |
-| `small`  | ~3.5×       | ~2×             |
-| `medium` | ~1.5×       | ~0.7×           |
-| `large`  | ~0.5×       | not recommended |
+<details>
+<summary>展开：加载音频，准备转录</summary>
 
-See [muscriptor.cpp's performance notes](https://github.com/DamRsn/muscriptor.cpp/blob/main/docs/PERFORMANCE.md) for
-details.
+![中文界面：加载音频后显示波形和转录入口](docs/images/neuralnote-zh-audio-loaded.png)
 
-## Build from source
+</details>
 
-Requirements:
+<details>
+<summary>展开：播放与多乐器试听</summary>
 
-- `git`
-- [CMake](https://cmake.org/)
-- A C++23 compiler, such as Clang, MSVC or GCC. Only Clang has been tested so far, on macOS, Windows and Linux.
-- Python 3 (used at configure time to fetch and build the synth's soundfont)
-- Internet access on the first configure. `muscriptor.cpp` fetches [ggml](https://github.com/ggml-org/ggml), and the
-  soundfont's two sources (~55 MB) are downloaded.
+![中文界面：播放中的多乐器 MIDI 和侧栏电平](docs/images/neuralnote-zh-playback.png)
 
-**macOS** needs Xcode's Metal toolchain, which compiles the GPU shaders at build time:
-`xcodebuild -downloadComponent MetalToolchain`. Configuring with `-DMUSCRIPTOR_METAL_PRECOMPILED=OFF` builds without it
-instead, and the shaders then compile when NeuralNote's window first opens in each app or DAW, and again after a macOS
-update, which takes about 20 seconds.
+</details>
 
-**Windows GPU support** needs the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home) at build time. Without it,
-NeuralNote builds and transcribes on the CPU only. With it, configure from a Visual Studio developer prompt, or set
-`CC`, `CXX` and `RC` in the environment: ggml builds its shader generator as a separate project that doesn't see
-CMake's compiler settings.
+截图由维护者提供，使用本仓库中的相对路径保存，克隆后也可查看。
 
-**Linux** has been tested on Ubuntu 24.04 with Clang 20. Install the compiler, JUCE's
-[Linux dependencies](https://github.com/juce-framework/JUCE/blob/master/docs/Linux%20Dependencies.md), and the Vulkan
-headers and shader compiler:
+## 模型与保存位置
 
-```
-sudo apt install clang-20 ninja-build pkg-config python3 \
-    libasound2-dev libjack-jackd2-dev ladspa-sdk libcurl4-openssl-dev libfreetype-dev libfontconfig1-dev \
-    libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev \
-    libwebkit2gtk-4.1-dev libglu1-mesa-dev mesa-common-dev \
-    libvulkan-dev glslc spirv-headers
-```
+| 模型 | 下载大小（约） | 选择参考 |
+| --- | --- | --- |
+| small | 209 MB | 优先考虑速度与资源占用 |
+| medium | 618 MB | 在速度与转录效果之间折中 |
+| large | 2.7 GB | 资源需求更高，建议有独立显卡时尝试 |
 
-Select the compiler through the environment when configuring, e.g. `CC=clang-20 CXX=clang++-20 cmake -B build -G Ninja
--DCMAKE_BUILD_TYPE=Release`.
+可以同时下载三个模型，通过顶部模型菜单切换。效果与速度取决于音频、模型和硬件；建议用同一片段试听比较，不保证大模型对每段音频都更好。
 
-[Ninja](https://ninja-build.org/) is optional but makes builds faster (`-G Ninja`).
+下载前可自行选择保存位置；Windows 首次下载优先在可用的非系统本地磁盘准备 `NeuralNote/models`，没有合适磁盘时回退到用户文档等位置。**所选下载目录就是模型使用目录。** 已有自定义路径会保留。
 
-Clone with submodules:
+Windows 当前配置保存在 `<用户主目录>/.neuralnote`，日志位于其 `logs/NeuralNote.log`。配置目录与模型目录相互独立，不要把模型复制到配置目录来代替选择模型路径。
 
-```
-git clone --recurse-submodules https://github.com/DamRsn/NeuralNote
+模型源为 [DamRsn/muscriptor-gguf](https://huggingface.co/DamRsn/muscriptor-gguf)。手动下载时使用程序支持的 `v1` 文件，保持原文件名与内容，例如 `muscriptor-medium-f16.gguf`。软件更新检查则指向 **cleafw/NeuralNote** 的正式 Releases，推送代码不等于发布新版。
+
+## 从源码编译
+
+```sh
+git clone --recurse-submodules https://github.com/cleafw/NeuralNote.git
 cd NeuralNote
 ```
 
-If you already cloned without them, run `git submodule update --init --recursive`.
+需要 Git、CMake 3.24 或更新版本、支持 C++23 的编译器及 Python 3。首次配置会获取 ggml 和用于试听的音色库源文件，需要联网。漏拉子模块时执行 `git submodule update --init --recursive`。
 
-Configure and build:
+### Windows GPU 版本
 
+使用 Visual Studio C++ Build Tools、Windows SDK 和 Vulkan SDK。项目提供的维护脚本要求保留 GPU 支持，不会静默降级为仅 CPU 构建。
+
+```powershell
+./Tools/build-windows-gpu.ps1 -InteractionTests
+# Vulkan SDK 在其他位置时：
+./Tools/build-windows-gpu.ps1 -VulkanSdk 'E:\Environment\VulkanSDK\1.4.350.0' -InteractionTests
 ```
+
+**脚本目前包含维护者本机的 Python、Vulkan SDK 和可选 ggml 缓存路径。其他电脑需先按实际环境调整脚本，不可直接照搬盘符。** 依赖、构建参数与验证方法见 [Windows GPU 编译说明](docs/WINDOWS_CUSTOM_BUILD.md)。
+
+独立程序输出到 `build/NeuralNote_artefacts/Release/Standalone/NeuralNote.exe`。构建产物和模型文件不提交到 Git；面向用户的安装包应放在 Releases。
+
+### macOS 与 Linux
+
+这是供开发者使用的构建入口，仍需安装对应系统的依赖并验证当前修改版：
+
+```sh
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
-The Standalone app and the plugins are written to `build/NeuralNote_artefacts/Release/`.
+macOS 需要 Xcode 及 Metal 工具链；单次构建对应一种架构，Intel 可指定 `-DCMAKE_OSX_ARCHITECTURES=x86_64`。Linux 需要 [JUCE 的系统依赖](https://github.com/juce-framework/JUCE/blob/master/docs/Linux%20Dependencies.md)，GPU 构建还需 Vulkan 开发工具并配置 `-DMUSCRIPTOR_VULKAN=ON`。本机 Windows 编译成功不代表跨平台验证完成。
 
-On macOS, a build contains only one architecture, the host's by default. To build for Intel Macs on Apple Silicon,
-configure with `-DCMAKE_OSX_ARCHITECTURES=x86_64`. Such a build runs under Rosetta, and its plugins are not copied to
-`~/Library/Audio/Plug-Ins`.
+## 反馈与贡献
 
-On Windows, the Standalone app supports ASIO devices. Distributing a build with ASIO requires signing Steinberg's
-[ASIO license agreement](https://www.steinberg.net/developers/prorietary-sdk/). To build without it, configure with
-`-DNEURALNOTE_ASIO=OFF`.
+请到 [本仓库 Issues](https://github.com/cleafw/NeuralNote/issues) 反馈，并提供系统、显卡、模型大小、复现步骤及相关日志。欢迎提交 Pull Request。引擎自身的技术文档见 [muscriptor.cpp](https://github.com/DamRsn/muscriptor.cpp)。
 
-## Reuse NeuralNote's transcription engine
+## 许可与致谢
 
-The transcription engine is a separate, self-contained repo:
-[muscriptor.cpp](https://github.com/DamRsn/muscriptor.cpp). It is a C++/ggml port of MuScriptor, included here as a
-git submodule (`ThirdParty/muscriptor.cpp`) and linked as a static library. It takes 16 kHz mono float32 audio and
-returns note events. See its [`docs/API.md`](https://github.com/DamRsn/muscriptor.cpp/blob/main/docs/API.md) for the
-public API. The GGUF weights it loads are available on
-[Hugging Face](https://huggingface.co/DamRsn/muscriptor-gguf) (see [License](#license)).
+NeuralNote 项目代码采用 [Apache-2.0](LICENSE)。第三方库和资源各有许可，完整声明见 [Installers/license.txt](Installers/license.txt) 及各依赖目录。JUCE 框架提供 AGPLv3 与 JUCE 商业许可两种授权路径，发布二进制时需满足所选授权条件，不能把根目录许可证视为所有依赖的许可证。
 
-## Roadmap
+**MuScriptor 模型权重不采用 Apache-2.0，而是 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)，要求署名并限制商业用途。** 软件代码与模型权重的许可应分别理解。Windows 本机自定义构建默认关闭 ASIO；如开启并分发，需遵守相应 Steinberg ASIO 许可。
 
-- Prebuilt binaries for Linux
-- MIDI out, with per-instrument channel selection
-- CLI
-- Performance optimizations
-
-## Bug reports, feature requests and contributing
-
-If you find a bug or have a suggestion, please file a [GitHub issue](https://github.com/DamRsn/NeuralNote/issues).
-Contributions are most welcome. Feel free to open a PR!
-
-## License
-
-NeuralNote's code is published under the **Apache-2.0** license. See the [license file](LICENSE).
-
-**The MuScriptor model weights are not open source.** They were released by Kyutai and Mirelo under the
-[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) license, and are redistributed as GGUF files on
-[Hugging Face](https://huggingface.co/DamRsn/muscriptor-gguf) under that same license. They may only be used
-non-commercially. The Apache-2.0 license covers NeuralNote's code only, not the weights.
-
-#### Third-party libraries and assets
-
-Their full license notices are in [`Installers/license.txt`](Installers/license.txt).
-
-- [JUCE](https://juce.com/) (JUCE Starter)
-- [VST3 SDK](https://github.com/steinbergmedia/vst3sdk) (MIT license, bundled with JUCE)
-- ASIO SDK headers (Steinberg ASIO license, bundled with JUCE, Windows only)
-- [muscriptor.cpp](https://github.com/DamRsn/muscriptor.cpp) (MIT license)
-- [ggml](https://github.com/ggml-org/ggml) (MIT license, fetched by muscriptor.cpp)
-- [PFFFT](https://bitbucket.org/jpommier/pffft) (BSD-style license, bundled in muscriptor.cpp)
-- [MuScriptor](https://github.com/muscriptor/muscriptor) model weights (CC BY-NC 4.0, see above)
-- [TinySoundFont](https://github.com/schellingb/TinySoundFont) (MIT license)
-- [MuseScore_General](https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/) soundfont (MIT license)
-- [FluidR3Mono_GM](https://github.com/musescore/MuseScore/tree/v2.3.2/share/sound) soundfont (MIT license)
-- [minimp3](https://github.com/lieff/minimp3) (CC0-1.0 license)
-- [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1)
-- [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) (SIL Open Font License 1.1)
-
-VST is a registered trademark of Steinberg Media Technologies GmbH. ASIO is a registered trademark of Steinberg Media
-Technologies GmbH.
-
-## Credits
-
-#### NeuralNote v2
-
-Developed by [Damien Ronssin](https://github.com/DamRsn), with AI assistance.
-
-#### NeuralNote v1
-
-Developed by [Damien Ronssin](https://github.com/DamRsn) and [Tibor Vass](https://github.com/tiborvass). The plugin
-user interface was designed by Perrine Morel.
-
-Many thanks to the v1 contributors!
-
-- [jatinchowdhury18](https://github.com/jatinchowdhury18): File browser.
-- [trirpi](https://github.com/trirpi)
-  - More scale options in `SCALE QUANTIZE`.
-  - Horizontal zoom for the audio waveform and the piano roll.
-- [polygon](https://github.com/polygon) and [SamuMazzi](https://github.com/SamuMazzi): Linux support.
+本修改版保留原作者及贡献者署名：NeuralNote v2 由 [Damien Ronssin](https://github.com/DamRsn) 开发；v1 由 Damien Ronssin 和 [Tibor Vass](https://github.com/tiborvass) 开发，界面由 Perrine Morel 设计。感谢 jatinchowdhury18、trirpi、polygon、SamuMazzi 等上游贡献者，以及 MuScriptor、muscriptor.cpp、JUCE、ggml、TinySoundFont 和音色库项目。上游完整贡献者说明保留在 [English README](README_EN.md#credits) 中。
