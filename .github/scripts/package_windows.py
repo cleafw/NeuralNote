@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_DIR = ROOT / "build" / "NeuralNote_artefacts" / "Release"
 OUTPUT_DIR = ROOT / "Installers" / "Windows" / "Output"
-ISCC = Path(os.environ["ProgramFiles(x86)"]) / "Inno Setup 6" / "ISCC.exe"
+ISCC = next(Path(os.environ["ProgramFiles(x86)"]).glob("Inno Setup */ISCC.exe"), Path("ISCC.exe"))
 
 
 def collect_pdbs(symbols_dir: Path) -> None:

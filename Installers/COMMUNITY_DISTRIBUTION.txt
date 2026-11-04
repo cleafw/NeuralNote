@@ -1,0 +1,16 @@
+NeuralNote community edition / 社区版
+https://github.com/cleafw/NeuralNote
+
+This community binary distribution uses JUCE under GNU AGPL version 3.
+The combined application binaries are distributed under GNU AGPL v3; component
+sources retain their original licenses, including Apache-2.0 for NeuralNote code.
+See AGPL-3.0.txt, LICENSE, license.txt and the individual dependency licenses.
+Complete corresponding source (including pinned submodules and JUCE patches) is
+provided in the source-with-submodules archive beside these binaries at:
+https://github.com/cleafw/NeuralNote/releases
+
+Model weights are NOT bundled. MuScriptor weights have a separate CC BY-NC 4.0
+license and are downloaded on demand from the original model publisher.
+
+Mac builds are ad-hoc signed, not Developer ID signed or Apple-notarized.
+Windows builds are not Authenticode signed. GPU builds require a compatible driver.

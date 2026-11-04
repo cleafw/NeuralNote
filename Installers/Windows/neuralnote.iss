@@ -6,20 +6,20 @@
 ; Identifies the installation across versions; must never change.
 AppId={{C01E3C5A-F330-421C-94D7-6264FC93B676}
 AppName=NeuralNote
-AppVersion=2.1.0
+AppVersion=2.1.1
 OutputBaseFilename=NeuralNote_Installer_Windows_x64
 DefaultDirName={commonpf}\NeuralNote
 DisableProgramGroupPage=yes
 InfoBeforeFile=..\readme.txt
 LicenseFile=..\license.txt
-AppPublisher=Dr. Audio
-AppPublisherURL=https://github.com/DamRsn/NeuralNote
-AppSupportURL=https://github.com/DamRsn/NeuralNote
-AppUpdatesURL=https://github.com/DamRsn/NeuralNote
+AppPublisher=cleafw (NeuralNote community fork)
+AppPublisherURL=https://github.com/cleafw/NeuralNote
+AppSupportURL=https://github.com/cleafw/NeuralNote/issues
+AppUpdatesURL=https://github.com/cleafw/NeuralNote/releases
 AlwaysShowComponentsList=yes
 Compression=lzma
 SolidCompression=yes
-DisableDirPage=yes
+DisableDirPage=no
 SetupIconFile=..\..\NeuralNote\Assets\Logo\NeuralNote.ico
 UninstallDisplayIcon={app}\NeuralNote.exe
 AppCopyright=Copyright (c) 2026 Damien Ronssin
@@ -36,13 +36,12 @@ Name: "plugin"; Description: "NeuralNote VST3"; Types: custom; Flags: disablenou
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Components: mainapp; Flags: unchecked
 
-[InstallDelete]
-; v1 installed the 32-bit way, into Program Files (x86), without an uninstaller.
-Type: filesandordirs; Name: "{commonpf32}\NeuralNote"
-
 [Files]
 Source: "..\..\{#ReleaseDir}\Standalone\NeuralNote.exe"; DestDir: "{app}"; Components:mainapp; Flags: ignoreversion recursesubdirs;
 Source: "..\..\{#ReleaseDir}\VST3\NeuralNote.vst3\*"; DestDir: "{commoncf}\VST3\NeuralNote.vst3"; Components:plugin; Flags: ignoreversion recursesubdirs;
+Source: "..\COMMUNITY_DISTRIBUTION.txt"; DestDir: "{app}\Notices"; Flags: ignoreversion;
+Source: "..\AGPL-3.0.txt"; DestDir: "{app}\Notices"; Flags: ignoreversion;
+Source: "..\license.txt"; DestDir: "{app}\Notices"; Flags: ignoreversion;
 
 [Icons]
 Name: "{autoprograms}\NeuralNote"; Filename: "{app}\NeuralNote.exe"; Components: mainapp

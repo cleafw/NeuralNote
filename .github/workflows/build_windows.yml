@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 180
     env:
       VULKAN_SDK_VERSION: 1.4.363.0
@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          submodules: true
+          submodules: recursive
           persist-credentials: false
 
       - name: Restore Vulkan SDK
@@ -57,6 +57,9 @@ jobs:
         with:
           path: .ccache
           key: ccache-windows-x64-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Install installer tools
+        run: choco install innosetup -y --no-progress
 
       - name: Package
         run: python .github/scripts/package_windows.py

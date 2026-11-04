@@ -47,7 +47,8 @@ def windows_options(ccache: str) -> tuple[list[str], list[str]]:
         f"-DCMAKE_LINKER={env['CMAKE_LINKER']}",
         f"-DCMAKE_AR={env['CMAKE_AR']}",
         *launchers(ccache, ["C", "CXX"]),
-        "-DNEURALNOTE_ASIO=ON",
+        "-DNEURALNOTE_ASIO=OFF",
+        "-DNEURALNOTE_REQUIRE_GPU=ON",
         # Fails the configure if the SDK is missing, rather than building without the backend.
         "-DMUSCRIPTOR_VULKAN=ON",
     ]
@@ -72,20 +73,26 @@ def main() -> None:
         options, targets = macos_options(args.arch, ccache)
     elif sys.platform == "win32":
         options, targets = windows_options(ccache)
+    elif sys.platform == "linux":
+        options = [*launchers(ccache, ["C", "CXX"]), "-DMUSCRIPTOR_VULKAN=ON"]
+        targets = ["NeuralNote_Standalone", "NeuralNote_VST3"]
     else:
         raise SystemExit(f"Unsupported platform: {sys.platform}")
 
     run(
         "cmake", "-S", str(ROOT), "-B", str(BUILD_DIR), "-G", "Ninja",
         "-DCMAKE_BUILD_TYPE=Release",
-        "-DLTO=ON",
+        "-DLTO=OFF",
         "-DNEURALNOTE_SYMBOLS=ON",
+        "-DNEURALNOTE_LOCALISATION_TESTS=ON",
         "-DMUSCRIPTOR_BUILD_TESTS=OFF",
         *options,
     )
 
     run(ccache, "--zero-stats")
-    run("cmake", "--build", str(BUILD_DIR), "--target", *targets)
+    run(sys.executable, str(ROOT / "Tools/check_localisation.py"))
+    run("cmake", "--build", str(BUILD_DIR), "--parallel", "3", "--target", *targets, "LocalisationTests")
+    run(str(BUILD_DIR / "LocalisationTests_artefacts/Release" / ("LocalisationTests.exe" if sys.platform == "win32" else "LocalisationTests")))
     run(ccache, "--show-stats")
 
 

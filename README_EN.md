@@ -86,6 +86,10 @@ Windows settings live under `<user home>/.neuralnote`, with logs in `logs/Neural
 
 Models come from [DamRsn/muscriptor-gguf](https://huggingface.co/DamRsn/muscriptor-gguf). For manual installation use the supported `v1` files unchanged, keeping names such as `muscriptor-medium-f16.gguf`. Application update checks use **cleafw/NeuralNote** Releases, not upstream. Pushing commits alone does not publish a new version.
 
+## Automated releases
+
+GitHub Actions builds Windows Vulkan GPU, macOS Apple Silicon/Intel (ad-hoc signed, not notarized), and Linux x64 packages. Releases become public only after all required builds succeed. See the [release workflow notes (Chinese)](docs/RELEASE_WORKFLOW.md). Available downloads are listed in Releases.
+
 ## Build from source
 
 Requirements: Git, CMake 3.24+, a C++23 compiler and Python 3. First configuration downloads ggml and the soundfont sources, so internet access is needed.
