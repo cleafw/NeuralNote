@@ -36,7 +36,7 @@ public:
 private:
     void _showNewVersionAvailableNotification();
 
-    void _showOnLatestVersionNotification();
+    void _showOnLatestVersionNotification(bool noPublishedRelease = false);
 
     void _hideNotification();
 
@@ -46,6 +46,7 @@ private:
     juce::Rectangle<int> _panelBounds() const;
 
     bool mUpdateAvailable {false};
+    bool mNoPublishedRelease {false};
 
     juce::Rectangle<int> mPanel;
     juce::Rectangle<int> mTextArea;
@@ -58,7 +59,7 @@ private:
     static constexpr double mNotificationDurationSeconds = 10.0f;
     static constexpr double mTimeIncrementOnMouseOverSeconds = 3.0f;
 
-    const juce::URL mLatestReleaseUrl {"https://github.com/DamRsn/NeuralNote/releases/latest"};
+    const juce::URL mLatestReleaseUrl {"https://github.com/cleafw/NeuralNote/releases/latest"};
 };
 
 #endif //UPDATECHECK_H

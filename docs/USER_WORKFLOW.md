@@ -38,6 +38,8 @@
 
 ## 验证与更新
 
+此修改版的自动更新检查及“查看更新”按钮仅连接 `cleafw/NeuralNote` 的 GitHub Releases，不检查原作者仓库。推送代码不会触发新版本提示；需在自己的仓库发布版本号高于当前程序的正式 Release。草稿和预发布不参与正式更新检测；仓库还没有 Release 时，手动检查显示“此仓库尚未发布正式版本”。模型仍从原有模型发布源下载，其版本与软件更新无关。
+
 Windows 配置统一保存在用户主目录的 `.neuralnote` 文件夹，例如 `C:\Users\用户名\.neuralnote`。程序自动迁移旧 Roaming 配置及 Codex MSIX 缓存中的已有模型路径、设置和会话，已有规范配置优先，不搬动模型文件。这样从桌面和 Codex 启动时读取同一份配置。日志位于该文件夹的 `logs/NeuralNote.log`，启动日志记录实际配置及模型文件路径。
 
 GPU 编译：`./Tools/build-windows-gpu.ps1 -InteractionTests`。测试覆盖选择、声相输出、试听、会话保存、MIDI 重新读取和布局几何。测试不启动独立软件主窗口。

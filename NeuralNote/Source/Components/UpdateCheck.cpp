@@ -64,6 +64,7 @@ UpdateCheck::UpdateCheck()
 
 juce::String UpdateCheck::_message() const
 {
+    if (mNoPublishedRelease) return nn::tr("No published release is available in this repository yet");
     return mUpdateAvailable ? nn::tr("A new version of NeuralNote is available")
                             : nn::tr("You are on the latest version of NeuralNote");
 }
@@ -145,7 +146,7 @@ void UpdateCheck::checkForUpdate(bool inShowNotificationOnLatestVersion)
         }
 
         juce::Thread::launch([safe_this, inShowNotificationOnLatestVersion] {
-            const juce::URL url("https://api.github.com/repos/DamRsn/NeuralNote/releases/latest");
+            const juce::URL url("https://api.github.com/repos/cleafw/NeuralNote/releases/latest");
 
             const auto result = url.readEntireTextStream();
 
@@ -162,6 +163,15 @@ void UpdateCheck::checkForUpdate(bool inShowNotificationOnLatestVersion)
                 // const auto current_version = juce::String("0.0.1");
 
                 const auto latest_version = json.getProperty("tag_name", {}).toString();
+                if (latest_version.isEmpty()) {
+                    if (inShowNotificationOnLatestVersion && json.getProperty("message", {}).toString() == "Not Found") {
+                        juce::MessageManager::callAsync([safe_this] {
+                            if (safe_this != nullptr) safe_this->_showOnLatestVersionNotification(true);
+                        });
+                    }
+                    return; // API errors and repositories without releases are not version numbers.
+                }
+                if ((bool)json.getProperty("draft", false) || (bool)json.getProperty("prerelease", false)) return;
 
                 juce::MessageManager::callAsync(
                     [current_version, latest_version, inShowNotificationOnLatestVersion, safe_this] {
@@ -184,6 +194,7 @@ void UpdateCheck::checkForUpdate(bool inShowNotificationOnLatestVersion)
 
 void UpdateCheck::_showNewVersionAvailableNotification()
 {
+    mNoPublishedRelease = false;
     mUpdateAvailable = true;
     setVisible(true);
     mSeeUpdateButton.setVisible(true);
@@ -195,8 +206,9 @@ void UpdateCheck::_showNewVersionAvailableNotification()
     startTimerHz(5);
 }
 
-void UpdateCheck::_showOnLatestVersionNotification()
+void UpdateCheck::_showOnLatestVersionNotification(bool noPublishedRelease)
 {
+    mNoPublishedRelease = noPublishedRelease;
     mUpdateAvailable = false;
     setVisible(true);
     mSeeUpdateButton.setVisible(false);
