@@ -8,6 +8,23 @@ This is a community fork of [DamRsn/NeuralNote](https://github.com/DamRsn/Neural
 
 [Downloads and release notes](https://github.com/cleafw/NeuralNote/releases) · [Report an issue](https://github.com/cleafw/NeuralNote/issues) · [Detailed workflow (Chinese)](docs/USER_WORKFLOW.md) · [Windows GPU build notes (Chinese)](docs/WINDOWS_CUSTOM_BUILD.md)
 
+## Direct downloads
+
+**Chinese and English use the same installer.** Choose your computer below. These links always download this fork's latest stable release, currently [v2.1.1](https://github.com/cleafw/NeuralNote/releases/tag/v2.1.1).
+
+| Your computer | Recommended download | Alternative / contents |
+| --- | --- | --- |
+| Windows 64-bit (x64) | [Windows GPU installer `.exe`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Installer_Windows_x64.exe) | Standalone app and optional VST3, with Vulkan GPU support |
+| Mac with Apple M-series chip | [Installer `.pkg`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Mac_arm64_unnotarized.pkg) | [Standalone app only: `.dmg`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Mac_arm64_unnotarized.dmg) |
+| Mac with Intel processor | [Installer `.pkg`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Mac_x64_unnotarized.pkg) | [Standalone app only: `.dmg`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Mac_x64_unnotarized.dmg) |
+| Linux: Ubuntu 24.04 x64 or a system meeting the dependencies | [Debian/Ubuntu installer `.deb`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Linux_x64.deb) | [User-local install archive: `.tar.gz`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Linux_x64.tar.gz) |
+
+On a Mac, open **Apple menu → About This Mac**: an Apple M-series chip means Apple Silicon; an Intel processor means Intel. Choose either `.pkg` or `.dmg`, not both.
+
+[Installation instructions](#installation) · [All files and release history](https://github.com/cleafw/NeuralNote/releases) · [SHA256 checksums](https://github.com/cleafw/NeuralNote/releases/latest/download/SHA256SUMS.txt)
+
+Most users do not need the `PDBs` debug symbols or `Source code` archives. Models download separately inside the app; there is no separate Chinese-language installer.
+
 ![Chinese interface showing source audio, instrument tracks and the multitrack piano roll](docs/images/neuralnote-zh-transcription.png)
 
 The screenshots show Chinese; select **Options → Language → English** to switch the same application to English. The default follows the system language, falling back to English for unsupported languages.
@@ -34,6 +51,47 @@ Use **[this fork's Releases](https://github.com/cleafw/NeuralNote/releases)** fo
 | Linux x64 | Ubuntu 24.04 `.deb` / `.tar.gz` packages published; cloud build and dependency checks passed; desktop runtime and other distributions remain unverified |
 
 The first multiplatform community release is [v2.1.1](https://github.com/cleafw/NeuralNote/releases/tag/v2.1.1). Mac packages are ad-hoc signed, **not Developer ID signed or Apple-notarized**; see the release notes for first-launch instructions. Build from source for platforms without a package. Models download separately; Chinese and English use the same application.
+
+## Installation
+
+### Windows
+
+1. Download and run the Windows `.exe` above, then choose the installation folder.
+2. Select the standalone application. Install VST3 as well if you use a DAW such as FL Studio; a desktop shortcut is optional.
+3. Launch NeuralNote, select the actual headphone/speaker output, then choose a model and download folder in the model panel.
+
+The installer is not code-signed, so Windows may show an unknown-publisher prompt; check the download source. GPU use requires a compatible Vulkan graphics driver. **End users do not need the development Vulkan SDK.** CPU can be selected when no suitable GPU is available.
+
+### macOS
+
+- **Standalone app plus plugins:** download the `.pkg` matching your chip, double-click it and follow the installer. The app goes into Applications; VST3 and AU go into the system audio plugin directories. Administrator approval may be required.
+- **Standalone app only:** download the matching `.dmg`, open it, drag `NeuralNote.app` into `Applications`, then launch it from Applications.
+
+Mac builds are ad-hoc signed, **not Apple Developer ID signed or notarized**. If macOS blocks first launch because it cannot verify the developer, verify the source, then check **System Settings → Privacy & Security → Open Anyway**. Managed computers may disallow this. See [Apple's instructions](https://support.apple.com/102445). Users do not need a developer account or paid membership.
+
+### Linux
+
+For Ubuntu 24.04 x64 or a compatible system meeting the package dependencies, the `.deb` is recommended. Open a terminal in the download directory:
+
+```sh
+sudo apt install ./NeuralNote_Linux_x64.deb
+```
+
+The package manager handles dependencies. Launch NeuralNote from the application menu or run `NeuralNote`. The package includes VST3. A graphical desktop and compatible graphics driver must be provided by your system.
+
+For a user-local installation, download `.tar.gz` and run these commands in the download directory:
+
+```sh
+tar -xzf NeuralNote_Linux_x64.tar.gz
+cd NeuralNote-Linux-x64
+./install-user.sh
+```
+
+The script installs the executable to `~/.local/bin/NeuralNote` and VST3 to `~/.vst3/`. Launch with `~/.local/bin/NeuralNote`. Do not run the user-install script with `sudo`. The archive is **not a self-contained AppImage**: install the system dependencies listed in its `README.txt` first. Compatibility with every Linux distribution is not guaranteed.
+
+### First launch
+
+Use the top model panel to download small, medium or large into a folder you choose; no extraction is needed. Load audio and click Transcribe. The UI follows your system language by default; change it under Options → Language. See Quick start below for playback and export.
 
 ## Quick start
 

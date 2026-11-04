@@ -8,6 +8,23 @@
 
 [下载与版本记录](https://github.com/cleafw/NeuralNote/releases) · [反馈问题](https://github.com/cleafw/NeuralNote/issues) · [详细操作说明](docs/USER_WORKFLOW.md) · [Windows GPU 编译说明](docs/WINDOWS_CUSTOM_BUILD.md)
 
+## 直接下载
+
+**中文和英文共用同一个安装包。** 按电脑系统选择下面一行即可；链接始终指向本仓库最新正式版，目前为 [v2.1.1](https://github.com/cleafw/NeuralNote/releases/tag/v2.1.1)。
+
+| 你的电脑 | 推荐下载 | 其他选择 |
+| --- | --- | --- |
+| Windows 64 位（x64） | [Windows GPU 安装包 `.exe`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Installer_Windows_x64.exe) | 独立程序和可选 VST3，支持 Vulkan GPU |
+| Mac：Apple M 系列芯片 | [安装包 `.pkg`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Mac_arm64_unnotarized.pkg) | [只装独立程序：`.dmg`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Mac_arm64_unnotarized.dmg) |
+| Mac：Intel 处理器 | [安装包 `.pkg`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Mac_x64_unnotarized.pkg) | [只装独立程序：`.dmg`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Mac_x64_unnotarized.dmg) |
+| Linux：Ubuntu 24.04 x64 或满足依赖的兼容系统 | [安装包 `.deb`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Linux_x64.deb) | [用户目录安装：`.tar.gz`](https://github.com/cleafw/NeuralNote/releases/latest/download/NeuralNote_Linux_x64.tar.gz) |
+
+不知道 Mac 属于哪一种？打开苹果菜单 →“关于本机”：显示“芯片 Apple M…”选择 Apple 芯片版；显示“处理器 Intel…”选择 Intel 版。`.pkg` 和 `.dmg` 选一种即可。
+
+[安装说明](#安装说明) · [全部文件与版本记录](https://github.com/cleafw/NeuralNote/releases) · [SHA256 校验清单](https://github.com/cleafw/NeuralNote/releases/latest/download/SHA256SUMS.txt)
+
+普通用户无需下载 `PDBs` 调试符号或 `Source code` 源码压缩包。模型在首次运行时单独下载，无需按界面语言分别下载软件。
+
 ![NeuralNote 中文界面：原声与乐器音轨、波形和多乐器 MIDI 钢琴卷帘](docs/images/neuralnote-zh-transcription.png)
 
 ## 功能
@@ -35,6 +52,47 @@
 首个多平台社区版本为 [v2.1.1](https://github.com/cleafw/NeuralNote/releases/tag/v2.1.1)。Mac 包采用无需付费证书的临时签名（ad-hoc），**没有 Apple Developer ID 签名或苹果公证**，首次打开方法见版本说明。没有对应平台包时，可按下文从源码编译。
 
 模型不包含在程序中，首次使用需要单独下载。中文与英文使用同一个程序，无需为切换语言重复下载软件。
+
+## 安装说明
+
+### Windows
+
+1. 下载上表的 Windows `.exe` 并运行，选择程序安装位置。
+2. 勾选独立程序；需要在 FL Studio 等宿主中使用时，再安装 VST3。也可按需创建桌面图标。
+3. 安装后打开 NeuralNote，选择耳机或音箱对应的音频输出，再在模型面板选择模型与下载目录。
+
+Windows 包没有代码签名，首次运行可能显示未知发布者提示，请核对下载来源。GPU 使用电脑已安装的兼容 Vulkan 显卡驱动；**普通用户不需要安装开发用 Vulkan SDK**。没有合适 GPU 时可以在计算设备中选择 CPU。
+
+### macOS
+
+- **需要独立程序和音频插件**：下载与你芯片匹配的 `.pkg`，双击并按提示安装。独立程序在“应用程序”中，VST3 和 AU 在系统音频插件目录中；安装可能需要管理员确认。
+- **只使用独立程序**：下载匹配的 `.dmg`，打开后把 `NeuralNote.app` 拖到 `Applications`，再从“应用程序”启动。
+
+Mac 包采用临时签名，**没有 Apple Developer ID 签名或苹果公证**。如果首次打开提示无法验证开发者，在确认来源后进入“系统设置 → 隐私与安全性”，查看“仍要打开”；受管理电脑可能不允许。详见 [苹果的打开说明](https://support.apple.com/zh-cn/102445)。无需为使用这个软件注册或购买开发者会员。
+
+### Linux
+
+推荐在 Ubuntu 24.04 x64 或满足包依赖的兼容系统使用 `.deb`。在下载文件所在目录打开终端：
+
+```sh
+sudo apt install ./NeuralNote_Linux_x64.deb
+```
+
+包管理器会处理依赖。安装后从应用菜单启动 NeuralNote，或运行 `NeuralNote`。该包也安装 VST3；桌面图形环境和兼容的显卡驱动需由系统提供。
+
+若希望安装到自己的用户目录，下载 `.tar.gz`，在下载目录运行：
+
+```sh
+tar -xzf NeuralNote_Linux_x64.tar.gz
+cd NeuralNote-Linux-x64
+./install-user.sh
+```
+
+此方式将程序安装到 `~/.local/bin/NeuralNote`，VST3 安装到 `~/.vst3/`。可运行 `~/.local/bin/NeuralNote` 启动；无需使用 `sudo` 运行用户安装脚本。压缩包**不是自包含 AppImage**，需要先满足包内 `README.txt` 列出的系统依赖；不保证适用于所有发行版。
+
+### 首次运行
+
+在顶部模型面板下载 small、medium 或 large，可自选保存位置，模型无需解压；随后载入音频并点击“转录”。界面默认跟随系统语言，也可在“选项 → 语言”切换。模型选择、试听与导出步骤见下方“快速开始”。
 
 ## 快速开始
 
