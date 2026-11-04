@@ -23,3 +23,7 @@
 维护入口：`.github/scripts/configure_and_build.py`（各系统构建）、`package_windows.py`（Windows）、`package_release.py`（Mac/Linux）、`prepare_release.py`（版本与源码）、`publish_release.py`（附件检查与公开）。
 
 本机脚本仍可使用维护者的环境目录；云端脚本不得依赖本机 B/E 盘路径。打包和发布不会关闭用户正在使用的软件或修改模型目录。
+
+## 首次发布记录
+
+2026-11-04：`v2.1.1` 已公开，Windows x64 Vulkan、Mac arm64、Mac x64、Linux x64 四个平台全部构建及打包成功，254 条翻译覆盖检查通过。Release 包含安装包、Windows 调试符号、完整源码及 SHA256 校验清单。运行记录：https://github.com/cleafw/NeuralNote/actions/runs/41823248999 。这不替代真实 Mac/Linux 桌面、显卡或 DAW 宿主的运行验证。

@@ -29,11 +29,11 @@ Use **[this fork's Releases](https://github.com/cleafw/NeuralNote/releases)** fo
 
 | Platform | Status of this fork |
 | --- | --- |
-| Windows x64 | Vulkan standalone build compiled and tested locally; available installers are listed in Releases |
-| macOS Apple Silicon / Intel | Build workflows exist; this fork's changes have not yet been runtime-tested on either architecture |
-| Linux | Source build support exists; packaging and runtime testing of this fork are pending |
+| Windows x64 | Published Vulkan installer with standalone and optional VST3; transcription tested locally on RTX 3060 |
+| macOS Apple Silicon / Intel | Separate unnotarized `.pkg` / `.dmg` packages published; cloud build, signature verification and packaging passed; physical Mac runtime tests pending |
+| Linux x64 | Ubuntu 24.04 `.deb` / `.tar.gz` packages published; cloud build and dependency checks passed; desktop runtime and other distributions remain unverified |
 
-If no package is attached for your platform, build from source. This document does not imply that all platform packages have been published or that Mac packages are signed/notarized. Models are downloaded separately. Chinese and English use the same application.
+The first multiplatform community release is [v2.1.1](https://github.com/cleafw/NeuralNote/releases/tag/v2.1.1). Mac packages are ad-hoc signed, **not Developer ID signed or Apple-notarized**; see the release notes for first-launch instructions. Build from source for platforms without a package. Models download separately; Chinese and English use the same application.
 
 ## Quick start
 

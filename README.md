@@ -28,11 +28,11 @@
 
 | 平台 | 当前修改版的状态 |
 | --- | --- |
-| Windows x64 | 已在本机编译并验证 Vulkan GPU 独立程序；可下载的安装包以本仓库 Releases 附件为准 |
-| macOS Apple Silicon / Intel | 项目包含构建流程；当前修改版尚未完成这两个平台的实际运行验证 |
-| Linux | 项目支持源码构建；当前修改版尚未完成 Linux 打包与运行验证 |
+| Windows x64 | 已发布 Vulkan GPU 安装包（独立程序 + 可选 VST3）；本机已在 RTX 3060 上验证转录 |
+| macOS Apple Silicon / Intel | 已分别发布未公证 `.pkg` / `.dmg`；云端编译、签名验证与打包通过，真实 Mac 运行验证仍待完成 |
+| Linux x64 | 已发布基于 Ubuntu 24.04 的 `.deb` / `.tar.gz`，云端编译与依赖检查通过；真实桌面运行及其他发行版兼容性仍待验证 |
 
-如果 Releases 中没有对应平台的安装包，可以先按下文从源码编译。**本文不表示各平台安装包均已发布，也不表示 Mac 包已经签名或公证。**
+首个多平台社区版本为 [v2.1.1](https://github.com/cleafw/NeuralNote/releases/tag/v2.1.1)。Mac 包采用无需付费证书的临时签名（ad-hoc），**没有 Apple Developer ID 签名或苹果公证**，首次打开方法见版本说明。没有对应平台包时，可按下文从源码编译。
 
 模型不包含在程序中，首次使用需要单独下载。中文与英文使用同一个程序，无需为切换语言重复下载软件。
 
