@@ -87,6 +87,16 @@ juce::Rectangle<int> contentOf(juce::Rectangle<int> inRowBounds)
 {
     return inRowBounds.reduced(CONTENT_X - ROW_INSET_X, 0);
 }
+
+juce::File existingFolder(juce::File folder)
+{
+    while (!folder.isDirectory()) {
+        const auto parent = folder.getParentDirectory();
+        if (parent == folder) return {};
+        folder = parent;
+    }
+    return folder;
+}
 } // namespace
 
 ModelDownloadPanel::Row::Row(ModelSize inModelSize)
@@ -149,9 +159,8 @@ ModelDownloadPanel::ModelDownloadPanel(NeuralNoteAudioProcessor& inProcessor)
     mOpenFolderButton.setWantsKeyboardFocus(false);
     mOpenFolderButton.onClick = [] {
         const auto size = NnGlobalSettings::getModelSize();
-        NNFileUtils::openDirectory(NNFileUtils::isModelInstalled(size)
-                                      ? NNFileUtils::getModelDirectory(size)
-                                      : NNFileUtils::prepareModelDownloadDirectory(size));
+        auto folder = existingFolder(NNFileUtils::getModelDirectory(size));
+        if (folder != juce::File()) NNFileUtils::openDirectory(folder);
     };
     addAndMakeVisible(mOpenFolderButton);
 
@@ -167,33 +176,84 @@ void ModelDownloadPanel::_chooseDownloadDirectory(ModelSize inModelSize)
     if (mChoosingDirectory || mProcessor.getModelDownloader().getStatus(inModelSize).isBusy()) {
         return;
     }
-    const auto initial = NNFileUtils::prepareModelDownloadDirectory(inModelSize);
-    mDirectoryChooser = std::make_unique<juce::FileChooser>(
-        nn::tr("Choose model download folder"), initial, "", true);
     mChoosingDirectory = true;
+    _showDownloadLocation(inModelSize, NNFileUtils::suggestModelDownloadDirectory(inModelSize).getFullPathName());
+}
+
+void ModelDownloadPanel::_showDownloadLocation(ModelSize inModelSize, const juce::String& inPath,
+                                               const juce::String& inError)
+{
+    auto message = nn::tr("Enter a full folder path or browse to a folder. Click Download to confirm.");
+    if (inError.isNotEmpty()) message = inError + "\n\n" + message;
+    mDownloadLocation = std::make_unique<juce::AlertWindow>(
+        nn::tr("Choose model download folder"), message, juce::MessageBoxIconType::NoIcon, this);
+    mDownloadLocation->addTextEditor("folder", inPath, nn::tr("Model folder"));
+    mDownloadLocation->addButton(nn::tr("Browse..."), 2);
+    mDownloadLocation->addButton(nn::tr("Download"), 1);
+    mDownloadLocation->addButton(nn::tr("Cancel"), 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    const juce::Component::SafePointer<ModelDownloadPanel> safeThis(this);
+    mDownloadLocation->enterModalState(true, juce::ModalCallbackFunction::create([safeThis, inModelSize](int result) {
+        if (!safeThis || !safeThis->mDownloadLocation) return;
+        const auto path = safeThis->mDownloadLocation->getTextEditorContents("folder").trim().unquoted();
+        // Keep the dialog alive until its modal callback has returned.
+        juce::MessageManager::callAsync([safeThis, inModelSize, result, path] {
+            if (!safeThis) return;
+            safeThis->mDownloadLocation.reset();
+            if (result == 2) safeThis->_browseDownloadLocation(inModelSize, path);
+            else if (result == 1) safeThis->_confirmDownloadLocation(inModelSize, path);
+            else safeThis->mChoosingDirectory = false;
+        });
+    }));
+}
+
+void ModelDownloadPanel::_browseDownloadLocation(ModelSize inModelSize, const juce::String& inPath)
+{
+    auto initial = juce::File::isAbsolutePath(inPath) ? existingFolder(juce::File(inPath)) : juce::File();
+    if (initial == juce::File()) initial = juce::File::getSpecialLocation(juce::File::userHomeDirectory);
+    mDirectoryChooser = std::make_unique<juce::FileChooser>(
+        nn::tr("Choose model download folder"), initial, "", true, false, this);
     const juce::Component::SafePointer<ModelDownloadPanel> safeThis(this);
     mDirectoryChooser->launchAsync(
         juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
-        [safeThis, inModelSize](const juce::FileChooser& chooser) {
-            if (safeThis == nullptr) {
-                return;
-            }
-            safeThis->mChoosingDirectory = false;
+        [safeThis, inModelSize, inPath](const juce::FileChooser& chooser) {
             const auto directory = chooser.getResult();
-            if (directory == juce::File()) {
-                return;
-            }
-            if (safeThis->mProcessor.getModelDownloader().getStatus(inModelSize).isBusy()) {
-                return;
-            }
-            if (!NNFileUtils::setModelDirectory(inModelSize, directory)) {
-                juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon,
-                    nn::tr("Model download"), nn::tr("Could not save the model folder. Please choose a writable folder."));
-                return;
-            }
-            safeThis->mProcessor.getModelDownloader().start(inModelSize);
-            safeThis->timerCallback();
+            juce::MessageManager::callAsync([safeThis, inModelSize, inPath, directory] {
+                if (!safeThis) return;
+                safeThis->mDirectoryChooser.reset();
+                safeThis->_showDownloadLocation(inModelSize, directory == juce::File() ? inPath : directory.getFullPathName());
+            });
         });
+}
+
+void ModelDownloadPanel::_confirmDownloadLocation(ModelSize inModelSize, const juce::String& inPath)
+{
+    auto& downloader = mProcessor.getModelDownloader();
+    if (downloader.getStatus(inModelSize).isBusy()) {
+        mChoosingDirectory = false;
+        return;
+    }
+    if (!juce::File::isAbsolutePath(inPath)) {
+        _showDownloadLocation(inModelSize, inPath, nn::tr("Enter a full folder path."));
+        return;
+    }
+    const juce::File directory(inPath);
+    const auto volumeFolder = existingFolder(directory);
+    const auto required = NNFileUtils::getModelDownloadBytesRequired(inModelSize, directory);
+    const auto available = volumeFolder == juce::File() ? -1 : volumeFolder.getBytesFreeOnVolume();
+    if (volumeFolder != juce::File() && available >= 0 && available < required) {
+        const auto error = nn::tr("Not enough space in this folder. Required: {required}. Available: {available}.")
+            .replace("{required}", formatSize(required)).replace("{available}", formatSize(available));
+        _showDownloadLocation(inModelSize, inPath, error);
+        return;
+    }
+    if (volumeFolder == juce::File() || !NNFileUtils::setModelDirectory(inModelSize, directory)) {
+        _showDownloadLocation(inModelSize, inPath,
+                              nn::tr("Could not save the model folder. Please choose a writable folder."));
+        return;
+    }
+    mChoosingDirectory = false;
+    downloader.start(inModelSize, directory);
+    timerCallback();
 }
 
 int ModelDownloadPanel::getIdealWidth()
@@ -258,9 +318,9 @@ bool ModelDownloadPanel::_updateRows(bool inForce)
     for (auto& row: mRows) {
         const ModelDownloader::Status& status = row->status;
 
-        row->downloadButton.setLabel(status.phase == ModelDownloader::Phase::Failed ? nn::tr("Retry")
-                                     : status.downloadedBytes > 0                   ? nn::tr("Resume")
-                                                                                    : nn::tr("Download"),
+        row->downloadButton.setLabel(status.phase == ModelDownloader::Phase::Failed ? nn::tr("Retry in...")
+                                     : status.downloadedBytes > 0                   ? nn::tr("Resume in...")
+                                                                                    : nn::tr("Download to..."),
                                      nn::fonts::buttonLabel());
         row->downloadButton.setVisible(!row->isInstalled && !status.isBusy());
         row->cancelButton.setVisible(!row->isInstalled && status.phase == ModelDownloader::Phase::Downloading);

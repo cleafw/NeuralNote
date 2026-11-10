@@ -54,15 +54,15 @@ public:
         stopThread(-1);
     }
 
-    void begin()
+    void begin(const juce::File& inDirectory)
     {
         if (isThreadRunning()) {
             return;
         }
 
         // Before the thread starts, so a status read in between does not see the last run's phase.
-        mTargetFile = NNFileUtils::getModelFile(mModelSize);
-        mPartFile = NNFileUtils::getModelPartFile(mModelSize);
+        mTargetFile = inDirectory.getChildFile(getModelManifestEntry(mModelSize).fileName);
+        mPartFile = NNFileUtils::getModelPartFile(mModelSize, inDirectory);
         mDownloadedBytes = mPartFile.getSize();
         mPhase = Phase::Downloading;
 
@@ -378,9 +378,9 @@ ModelDownloader::~ModelDownloader()
     }
 }
 
-void ModelDownloader::start(ModelSize inModelSize)
+void ModelDownloader::start(ModelSize inModelSize, const juce::File& inDirectory)
 {
-    mJobs[indexOf(inModelSize)]->begin();
+    mJobs[indexOf(inModelSize)]->begin(inDirectory);
 }
 
 void ModelDownloader::cancel(ModelSize inModelSize)

@@ -69,7 +69,11 @@ private:
 
     void timerCallback() override;
     void _chooseDownloadDirectory(ModelSize inModelSize);
+    void _showDownloadLocation(ModelSize inModelSize, const juce::String& inPath, const juce::String& inError = {});
+    void _browseDownloadLocation(ModelSize inModelSize, const juce::String& inPath);
+    void _confirmDownloadLocation(ModelSize inModelSize, const juce::String& inPath);
     std::unique_ptr<juce::FileChooser> mDirectoryChooser;
+    std::unique_ptr<juce::AlertWindow> mDownloadLocation;
     bool mChoosingDirectory = false;
 
     /**

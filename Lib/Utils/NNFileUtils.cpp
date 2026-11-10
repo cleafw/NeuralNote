@@ -83,7 +83,7 @@ bool setModelDirectory(ModelSize inModelSize, const juce::File& inDirectory)
         .replaceWithText(inDirectory.getFullPathName());
 }
 
-juce::File prepareModelDownloadDirectory(ModelSize inModelSize)
+juce::File suggestModelDownloadDirectory(ModelSize inModelSize)
 {
     const auto usable = [](const juce::File& directory) {
         return directory.isDirectory() && directory.hasWriteAccess();
@@ -114,16 +114,16 @@ juce::File prepareModelDownloadDirectory(ModelSize inModelSize)
             || root.getBytesFreeOnVolume() < getModelManifestEntry(inModelSize).numBytes)
             continue;
         const auto candidate = root.getChildFile("NeuralNote").getChildFile("models");
-        if (ensureDirectoryExists(candidate) && usable(candidate)) return candidate;
+        if (!candidate.exists() || usable(candidate)) return candidate;
     }
 #endif
     // A machine may have only one drive. Use a per-user writable location instead
     // of demanding administrator access to its root. The picker still allows any path.
     const auto fallback = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
                               .getChildFile("NeuralNote").getChildFile("models");
-    if (ensureDirectoryExists(fallback) && usable(fallback)) return fallback;
+    if (!fallback.exists() || usable(fallback)) return fallback;
     const auto legacy = getModelsDirectory();
-    if (ensureDirectoryExists(legacy) && usable(legacy)) return legacy;
+    if (!legacy.exists() || usable(legacy)) return legacy;
     return juce::File::getSpecialLocation(juce::File::userHomeDirectory);
 }
 
@@ -199,10 +199,23 @@ std::optional<ModelSize> getInstalledModelSize(ModelSize inPreferred)
 
 juce::File getModelPartFile(ModelSize inModelSize)
 {
+    return getModelPartFile(inModelSize, getModelDirectory(inModelSize));
+}
+
+juce::File getModelPartFile(ModelSize inModelSize, const juce::File& inDirectory)
+{
     const ModelManifestEntry& entry = getModelManifestEntry(inModelSize);
 
-    return getModelDirectory(inModelSize).getChildFile(juce::String(entry.fileName) + "."
+    return inDirectory.getChildFile(juce::String(entry.fileName) + "."
                                              + juce::String(entry.sha256).substring(0, 8) + ".part");
+}
+
+juce::int64 getModelDownloadBytesRequired(ModelSize inModelSize, const juce::File& inDirectory)
+{
+    const auto& entry = getModelManifestEntry(inModelSize);
+    if (inDirectory.getChildFile(entry.fileName).getSize() == entry.numBytes) return 0;
+    const auto partBytes = getModelPartFile(inModelSize, inDirectory).getSize();
+    return entry.numBytes - (partBytes <= entry.numBytes ? partBytes : 0);
 }
 
 void openDirectory(const juce::File& inDirectory)

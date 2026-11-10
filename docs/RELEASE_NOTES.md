@@ -20,6 +20,7 @@ Linux 推荐通过 `sudo apt install ./NeuralNote_Linux_x64.deb` 安装，使包
 
 ### 本版内容
 
+- 修复模型下载目录不够明确的问题。点“下载到…”可直接输入完整路径（例如 `G:\NeuralNote\models`）或浏览选盘。确认前只显示建议路径，确认时检查剩余空间。重试或继续下载也可改选目录。
 - 简体中文/英文界面、统一菜单和独立界面缩放。
 - 原声与乐器独立播放、音量、声相、静音、独奏和选定音色试听。
 - 乐器多选、分轨/批量 MIDI 导出、重新生成 MIDI。
@@ -27,6 +28,8 @@ Linux 推荐通过 `sudo apt install ./NeuralNote_Linux_x64.deb` 安装，使包
 - 应用更新只检查本仓库 Releases。
 
 ### License and verification
+
+v2.1.2 model downloads display an editable destination before starting. Type an absolute path or browse to another drive, then confirm. The download checks the space needed in the chosen folder, including partial downloads available there.
 
 This community binary distribution uses JUCE under AGPLv3; complete corresponding source is attached, and original component notices are retained. MuScriptor model weights are downloaded separately under CC BY-NC 4.0.
 

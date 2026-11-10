@@ -30,9 +30,11 @@ juce::File getModelsDirectory();
 /** Per-model location selected before downloading; persisted separately from global settings. */
 juce::File getModelDirectory(ModelSize inModelSize);
 bool setModelDirectory(ModelSize inModelSize, const juce::File& inDirectory);
-/** Called only when opening the download chooser. Creates a portable default if needed;
-    does not persist a location until the user confirms their choice. */
-juce::File prepareModelDownloadDirectory(ModelSize inModelSize);
+/** Suggests a portable location without creating or saving the model folder. */
+juce::File suggestModelDownloadDirectory(ModelSize inModelSize);
+
+/** Bytes still needed in this destination, including any resumable partial download. */
+juce::int64 getModelDownloadBytesRequired(ModelSize inModelSize, const juce::File& inDirectory);
 
 /** <NeuralNote>/global.settings, the settings shared by every instance. See NnGlobalSettings. */
 juce::File getGlobalSettingsFile();
@@ -77,6 +79,7 @@ std::optional<ModelSize> getInstalledModelSize(ModelSize inPreferred);
  * end up with, so a part started by a build pinned to other weights is never resumed.
  */
 juce::File getModelPartFile(ModelSize inModelSize);
+juce::File getModelPartFile(ModelSize inModelSize, const juce::File& inDirectory);
 
 /** Opens inDirectory in the file manager, creating it first. */
 void openDirectory(const juce::File& inDirectory);

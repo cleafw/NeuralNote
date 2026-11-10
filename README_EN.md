@@ -10,7 +10,7 @@ This is a community fork of [DamRsn/NeuralNote](https://github.com/DamRsn/Neural
 
 ## Direct downloads
 
-**Chinese and English use the same installer.** Choose your computer below. These links always download this fork's latest stable release, currently [v2.1.1](https://github.com/cleafw/NeuralNote/releases/tag/v2.1.1).
+**Chinese and English use the same installer.** Choose your computer below. These links always download this fork's latest stable release, currently [v2.1.2](https://github.com/cleafw/NeuralNote/releases/tag/v2.1.2).
 
 | Your computer | Recommended download | Alternative / contents |
 | --- | --- | --- |
@@ -96,7 +96,7 @@ Use the top model panel to download small, medium or large into a folder you cho
 ## Quick start
 
 1. Choose the physical headphone/speaker output in **Options → Audio/MIDI settings**.
-2. Open the model panel and download a model. A folder chooser appears before downloading; that folder is also where the model is loaded from. No extraction is needed.
+2. Open the model panel and click “Download to…”. Enter a full folder path or use Browse to select a drive. Review the path and click Download to start. The model loads from the selected folder without extraction.
 3. Load or drop WAV, AIFF, FLAC, MP3 or Ogg Vorbis audio, or record audio.
 4. Select automatic detection or the instruments to transcribe, then click **Transcribe**. Results appear progressively; pause and resume are supported.
 5. Play back the result. Use the source/instrument enable switches, M (mute), S (solo), volume and pan to compare tracks.

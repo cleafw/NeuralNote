@@ -2,6 +2,7 @@
 #include "PianoRoll.h"
 #include "AudioRegion.h"
 #include "NNFileUtils.h"
+#include "ModelManifest.h"
 #include "Sidebar.h"
 #include "NnEditorConstrainer.h"
 #include "NeuralNoteMainView.h"
@@ -35,6 +36,20 @@ int main(int argc, char** argv)
         std::printf("%s: %s\n", passed ? "PASS" : "FAIL", what);
         if (!passed) ++failures;
     };
+    {
+        const auto directory = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                   .getNonexistentChildFile("NeuralNote-download-space", "");
+        const auto size = ALL_MODEL_SIZES.front();
+        const auto total = getModelManifestEntry(size).numBytes;
+        const auto part = NNFileUtils::getModelPartFile(size, directory);
+        const bool created = directory.createDirectory().wasOk() && part.replaceWithText("partial");
+        check(created && NNFileUtils::getModelDownloadBytesRequired(size, directory) == total - part.getSize(),
+              "resuming needs space for the remaining bytes in the confirmed folder");
+        check(NNFileUtils::getModelDownloadBytesRequired(size, directory.getChildFile("another-drive-folder")) == total,
+              "a different destination needs the full model size");
+        part.deleteFile();
+        directory.deleteFile();
+    }
     NeuralNoteAudioProcessor processor;
     check(!processor.getTranscriptionManager()->canRestartTranscription(), "empty project cannot regenerate MIDI");
     Keyboard keyboard;
