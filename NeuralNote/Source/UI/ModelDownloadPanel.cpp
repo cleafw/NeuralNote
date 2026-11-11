@@ -183,13 +183,14 @@ void ModelDownloadPanel::_chooseDownloadDirectory(ModelSize inModelSize)
 void ModelDownloadPanel::_showDownloadLocation(ModelSize inModelSize, const juce::String& inPath,
                                                const juce::String& inError)
 {
-    auto message = nn::tr("Enter a full folder path or browse to a folder. Click Download to confirm.");
+    auto message = nn::tr("Enter a full folder path or browse, then choose a download source.");
     if (inError.isNotEmpty()) message = inError + "\n\n" + message;
     mDownloadLocation = std::make_unique<juce::AlertWindow>(
         nn::tr("Choose model download folder"), message, juce::MessageBoxIconType::NoIcon, this);
     mDownloadLocation->addTextEditor("folder", inPath, nn::tr("Model folder"));
     mDownloadLocation->addButton(nn::tr("Browse..."), 2);
-    mDownloadLocation->addButton(nn::tr("Download"), 1);
+    mDownloadLocation->addButton(nn::tr("Download from Hugging Face"), 1);
+    mDownloadLocation->addButton(nn::tr("Download from GitHub"), 3);
     mDownloadLocation->addButton(nn::tr("Cancel"), 0, juce::KeyPress(juce::KeyPress::escapeKey));
     const juce::Component::SafePointer<ModelDownloadPanel> safeThis(this);
     mDownloadLocation->enterModalState(true, juce::ModalCallbackFunction::create([safeThis, inModelSize](int result) {
@@ -200,7 +201,9 @@ void ModelDownloadPanel::_showDownloadLocation(ModelSize inModelSize, const juce
             if (!safeThis) return;
             safeThis->mDownloadLocation.reset();
             if (result == 2) safeThis->_browseDownloadLocation(inModelSize, path);
-            else if (result == 1) safeThis->_confirmDownloadLocation(inModelSize, path);
+            else if (result == 1 || result == 3)
+                safeThis->_confirmDownloadLocation(inModelSize, path, result == 3
+                    ? ModelDownloader::Source::GitHub : ModelDownloader::Source::HuggingFace);
             else safeThis->mChoosingDirectory = false;
         });
     }));
@@ -225,7 +228,8 @@ void ModelDownloadPanel::_browseDownloadLocation(ModelSize inModelSize, const ju
         });
 }
 
-void ModelDownloadPanel::_confirmDownloadLocation(ModelSize inModelSize, const juce::String& inPath)
+void ModelDownloadPanel::_confirmDownloadLocation(ModelSize inModelSize, const juce::String& inPath,
+                                                  ModelDownloader::Source inSource)
 {
     auto& downloader = mProcessor.getModelDownloader();
     if (downloader.getStatus(inModelSize).isBusy()) {
@@ -252,7 +256,7 @@ void ModelDownloadPanel::_confirmDownloadLocation(ModelSize inModelSize, const j
         return;
     }
     mChoosingDirectory = false;
-    downloader.start(inModelSize, directory);
+    downloader.start(inModelSize, directory, inSource);
     timerCallback();
 }
 

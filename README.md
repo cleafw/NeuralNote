@@ -149,6 +149,8 @@ Windows 当前配置保存在 `<用户主目录>/.neuralnote`，日志位于其 
 
 模型源为 [DamRsn/muscriptor-gguf](https://huggingface.co/DamRsn/muscriptor-gguf)。手动下载时使用程序支持的 `v1` 文件，保持原文件名与内容，例如 `muscriptor-medium-f16.gguf`。软件更新检查则指向 **cleafw/NeuralNote** 的正式 Releases，推送代码不等于发布新版。
 
+连不上 Hugging Face 时，支持备用下载的版本可在模型下载窗口选择 **从 GitHub 下载**；大型模型会自动下载两片、合并并校验后安装。也可以从 [模型备用下载页](https://github.com/cleafw/project-downloads/tree/main/projects/neuralnote/muscriptor-v1) 手动下载，其中有合并步骤和 SHA-256 校验值。两个站都无法访问时，这个备用入口也无法使用。
+
 ## GitHub 自动编译与发布
 
 本仓库提供 Windows Vulkan GPU、Mac Apple Silicon/Intel（无需付费证书，未公证）和 Linux x64 的自动构建与打包流程。工作流全部成功后才公开安装包；实际可下载文件请查看 Releases。手动运行、版本标签和包说明见 [发布维护文档](docs/RELEASE_WORKFLOW.md)。

@@ -29,6 +29,7 @@ class ModelDownloader
 {
 public:
     enum class Phase { Idle, Downloading, Verifying, Failed };
+    enum class Source { HuggingFace, GitHub };
 
     struct Status {
         Phase phase = Phase::Idle;
@@ -52,7 +53,7 @@ public:
     ~ModelDownloader();
 
     /** Does nothing while this size is already busy. Resumes a part file if there is one. */
-    void start(ModelSize inModelSize, const juce::File& inDirectory);
+    void start(ModelSize inModelSize, const juce::File& inDirectory, Source inSource = Source::HuggingFace);
 
     /** Returns without waiting. The part file is kept, so the next start resumes. */
     void cancel(ModelSize inModelSize);

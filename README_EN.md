@@ -144,6 +144,8 @@ Windows settings live under `<user home>/.neuralnote`, with logs in `logs/Neural
 
 Models come from [DamRsn/muscriptor-gguf](https://huggingface.co/DamRsn/muscriptor-gguf). For manual installation use the supported `v1` files unchanged, keeping names such as `muscriptor-medium-f16.gguf`. Application update checks use **cleafw/NeuralNote** Releases, not upstream. Pushing commits alone does not publish a new version.
 
+If Hugging Face is unreachable, versions with mirror support offer **Download from GitHub** in the model download dialog. The large model is downloaded in two parts, joined, and verified before installation. The [model mirror page](https://github.com/cleafw/project-downloads/tree/main/projects/neuralnote/muscriptor-v1) also provides manual downloads, joining instructions, and SHA-256 checksums. The mirror still requires access to GitHub.
+
 ## Automated releases
 
 GitHub Actions builds Windows Vulkan GPU, macOS Apple Silicon/Intel (ad-hoc signed, not notarized), and Linux x64 packages. Releases become public only after all required builds succeed. See the [release workflow notes (Chinese)](docs/RELEASE_WORKFLOW.md). Available downloads are listed in Releases.

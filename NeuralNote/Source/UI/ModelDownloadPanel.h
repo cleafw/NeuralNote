@@ -71,7 +71,7 @@ private:
     void _chooseDownloadDirectory(ModelSize inModelSize);
     void _showDownloadLocation(ModelSize inModelSize, const juce::String& inPath, const juce::String& inError = {});
     void _browseDownloadLocation(ModelSize inModelSize, const juce::String& inPath);
-    void _confirmDownloadLocation(ModelSize inModelSize, const juce::String& inPath);
+    void _confirmDownloadLocation(ModelSize inModelSize, const juce::String& inPath, ModelDownloader::Source inSource);
     std::unique_ptr<juce::FileChooser> mDirectoryChooser;
     std::unique_ptr<juce::AlertWindow> mDownloadLocation;
     bool mChoosingDirectory = false;

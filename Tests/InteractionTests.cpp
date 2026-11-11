@@ -3,6 +3,7 @@
 #include "AudioRegion.h"
 #include "NNFileUtils.h"
 #include "ModelManifest.h"
+#include "ModelDownloader.h"
 #include "Sidebar.h"
 #include "NnEditorConstrainer.h"
 #include "NeuralNoteMainView.h"
@@ -18,6 +19,37 @@ static juce::MouseEvent eventFor(juce::Component& component, juce::Point<float> 
 int main(int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI gui;
+    if (argc == 4 && juce::String(argv[1]) == "--verify-model-mirror") {
+        const auto folder = juce::File(juce::String::fromUTF8(argv[2]));
+        for (const auto size : ALL_MODEL_SIZES) {
+            if (juce::String(argv[3]) != modelSizeToString(size)) continue;
+            const auto& manifest = getModelManifestEntry(size);
+            const auto checkpoint = folder.getChildFile(manifest.fileName);
+            if (checkpoint.existsAsFile() || folder.createDirectory().failed()) return 2;
+            ModelDownloader downloader;
+            downloader.start(size, folder, ModelDownloader::Source::GitHub);
+            auto status = downloader.getStatus(size);
+            while (status.isBusy()) {
+                juce::Thread::sleep(100);
+                status = downloader.getStatus(size);
+            }
+            if (status.phase == ModelDownloader::Phase::Failed) {
+                std::fprintf(stderr, "%s\n", status.errorMessage.toRawUTF8());
+                return 1;
+            }
+            if (checkpoint.getSize() != manifest.numBytes || juce::SHA256(checkpoint).toHexString() != manifest.sha256)
+                return 1;
+            auto model = msl::Transcriber::load(NNFileUtils::toPath(checkpoint));
+            if (!model) {
+                std::fprintf(stderr, "Load failed: %s\n", msl::describe(model.error()));
+                return 1;
+            }
+            std::printf("PASS: %s downloaded from GitHub, verified, and loaded on %s\n",
+                        manifest.fileName, model->device().name.c_str());
+            return 0;
+        }
+        return 2;
+    }
     if (argc > 1 && (juce::String(argv[1]) == "--model-paths" || juce::String(argv[1]) == "--model-paths-file")) {
         juce::String report = "data=" + NNFileUtils::getNeuralNoteDirectory().getFullPathName() + "\n";
         for (const auto size : ALL_MODEL_SIZES) {

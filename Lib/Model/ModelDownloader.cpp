@@ -24,10 +24,33 @@ constexpr int CHUNK_BYTES = 1 << 20;
 // so a long download is not given up on because of a few drops spread across it.
 constexpr std::array<int, 3> RETRY_DELAYS_MS = {2000, 5000, 10000};
 
-juce::URL getModelUrl(ModelSize inModelSize)
+struct DownloadAsset {
+    juce::URL url;
+    juce::int64 start;
+    juce::int64 size;
+};
+
+DownloadAsset getDownloadAsset(ModelSize inModelSize, ModelDownloader::Source inSource, juce::int64 inOffset)
 {
-    return juce::URL("https://huggingface.co/" + juce::String(MODEL_REPO) + "/resolve/" + MODEL_REVISION + "/"
-                     + MODEL_REPO_DIRECTORY + "/" + getModelManifestEntry(inModelSize).fileName);
+    const auto& entry = getModelManifestEntry(inModelSize);
+    if (inSource == ModelDownloader::Source::GitHub) {
+        const auto base = "https://github.com/cleafw/project-downloads/releases/download/"
+                          "neuralnote-muscriptor-v1/" + juce::String(entry.fileName);
+        if (inModelSize == ModelSize::Large) {
+            constexpr juce::int64 firstPartBytes = 1610612736;
+            if (inOffset < firstPartBytes) return {juce::URL(base + ".part01"), 0, firstPartBytes};
+            return {juce::URL(base + ".part02"), firstPartBytes, entry.numBytes - firstPartBytes};
+        }
+        return {juce::URL(base), 0, entry.numBytes};
+    }
+    return {juce::URL("https://huggingface.co/" + juce::String(MODEL_REPO) + "/resolve/" + MODEL_REVISION + "/"
+                      + MODEL_REPO_DIRECTORY + "/" + entry.fileName), 0, entry.numBytes};
+}
+
+bool rewindPart(const juce::File& inPart, juce::int64 inOffset)
+{
+    juce::FileOutputStream output(inPart);
+    return output.openedOk() && output.setPosition(inOffset) && output.truncate().wasOk();
 }
 
 size_t indexOf(ModelSize inModelSize)
@@ -54,7 +77,7 @@ public:
         stopThread(-1);
     }
 
-    void begin(const juce::File& inDirectory)
+    void begin(const juce::File& inDirectory, Source inSource)
     {
         if (isThreadRunning()) {
             return;
@@ -62,6 +85,7 @@ public:
 
         // Before the thread starts, so a status read in between does not see the last run's phase.
         mTargetFile = inDirectory.getChildFile(getModelManifestEntry(mModelSize).fileName);
+        mSource = inSource;
         mPartFile = NNFileUtils::getModelPartFile(mModelSize, inDirectory);
         mDownloadedBytes = mPartFile.getSize();
         mPhase = Phase::Downloading;
@@ -151,18 +175,22 @@ private:
 
         const juce::File part = mPartFile;
         _deleteOtherPartFiles(part);
+        if (part.getSize() > entry.numBytes && !part.deleteFile()) {
+            return nn::tr("Could not write to ") + part.getFullPathName();
+        }
 
         size_t failed_attempts = 0;
 
         while (part.getSize() != entry.numBytes) {
             const juce::int64 size_before = part.getSize();
-            const Attempt attempt = _attempt(part, entry);
+            const Attempt attempt = _attempt(part);
 
             if (threadShouldExit()) {
                 return {};
             }
 
             if (attempt.failure.isEmpty()) {
+                failed_attempts = 0;
                 continue;
             }
 
@@ -212,18 +240,15 @@ private:
     }
 
     /** One request, from wherever the part file ends. */
-    Attempt _attempt(const juce::File& inPart, const ModelManifestEntry& inEntry)
+    Attempt _attempt(const juce::File& inPart)
     {
-        juce::int64 offset = inPart.getSize();
+        const auto absoluteOffset = inPart.getSize();
+        const auto asset = getDownloadAsset(mModelSize, mSource, absoluteOffset);
+        const auto offset = absoluteOffset - asset.start;
+        const auto host = asset.url.getDomain();
+        mDownloadedBytes = absoluteOffset;
 
-        if (offset > inEntry.numBytes) {
-            inPart.deleteFile();
-            offset = 0;
-        }
-
-        mDownloadedBytes = offset;
-
-        juce::WebInputStream stream(getModelUrl(mModelSize), false);
+        juce::WebInputStream stream(asset.url, false);
         stream.withConnectionTimeout(CONNECTION_TIMEOUT_MS).withNumRedirectsToFollow(MAX_REDIRECTS);
 
         if (offset > 0) {
@@ -247,14 +272,14 @@ private:
         }
 
         if (!stream.connect(nullptr)) {
-            return {nn::tr("Could not reach huggingface.co")};
+            return {nn::tr("Could not reach {host}").replace("{host}", host)};
         }
 
         const int status_code = stream.getStatusCode();
         const juce::String content_range = stream.getResponseHeaders()["Content-Range"];
 
         NnLogger::write(NnLogger::Level::Info,
-                        "ModelDownloader: " + juce::String(modelSizeToString(mModelSize)) + ": from byte "
+                        "ModelDownloader: " + asset.url.toString(true) + ": from byte "
                             + juce::String(offset) + ", HTTP " + juce::String(status_code)
                             + (content_range.isEmpty() ? juce::String() : ", Content-Range " + content_range));
 
@@ -262,27 +287,29 @@ private:
             // "bytes <first>-<last>/<total>"
             const bool range_matches =
                 content_range.startsWith("bytes " + juce::String(offset) + "-")
-                && content_range.fromLastOccurrenceOf("/", false, false).getLargeIntValue() == inEntry.numBytes;
+                && content_range.fromLastOccurrenceOf("/", false, false).getLargeIntValue() == asset.size;
 
             // Not a continuation of the part file: start again, as for 416.
             if (!range_matches) {
-                inPart.deleteFile();
-                return {nn::tr("Unexpected response from huggingface.co")};
+                if (offset > 0 && !rewindPart(inPart, asset.start))
+                    return {nn::tr("Could not write to ") + inPart.getFullPathName(), false};
+                return {nn::tr("Unexpected response from {host}").replace("{host}", host)};
             }
         } else if (status_code == 200) {
             // The whole file, whether or not a range was asked for.
-            if (offset > 0 && !inPart.deleteFile()) {
+            if (offset > 0 && !rewindPart(inPart, asset.start)) {
                 return {nn::tr("Could not write to ") + inPart.getFullPathName(), false};
             }
 
-            offset = 0;
-            mDownloadedBytes = 0;
+            mDownloadedBytes = asset.start;
         } else if (status_code == 416) {
             // The part file is not a prefix the server recognises: start again.
-            inPart.deleteFile();
+            if (offset > 0 && !rewindPart(inPart, asset.start))
+                return {nn::tr("Could not write to ") + inPart.getFullPathName(), false};
             return {nn::tr("The partial download could not be resumed")};
         } else {
-            return {nn::tr("huggingface.co answered HTTP ") + juce::String(status_code), status_code >= 500};
+            return {nn::tr("{host} answered HTTP ").replace("{host}", host) + juce::String(status_code),
+                    status_code >= 500};
         }
 
         juce::FileOutputStream output(inPart);
@@ -300,8 +327,8 @@ private:
                 break;
             }
 
-            if (mDownloadedBytes.load() + num_read > inEntry.numBytes) {
-                return {nn::tr("huggingface.co sent more than the expected size"), false};
+            if (mDownloadedBytes.load() + num_read > asset.start + asset.size) {
+                return {nn::tr("{host} sent more than the expected size").replace("{host}", host), false};
             }
 
             if (!output.write(buffer.get(), static_cast<size_t>(num_read))) {
@@ -318,7 +345,7 @@ private:
         }
 
         // A connection that drops mid-body ends the stream early rather than reporting an error.
-        if (mDownloadedBytes.load() != inEntry.numBytes) {
+        if (mDownloadedBytes.load() != asset.start + asset.size) {
             return {nn::tr("The connection dropped")};
         }
 
@@ -339,6 +366,7 @@ private:
     }
 
     const ModelSize mModelSize;
+    Source mSource = Source::HuggingFace;
     juce::File mTargetFile;
     juce::File mPartFile;
 
@@ -378,9 +406,9 @@ ModelDownloader::~ModelDownloader()
     }
 }
 
-void ModelDownloader::start(ModelSize inModelSize, const juce::File& inDirectory)
+void ModelDownloader::start(ModelSize inModelSize, const juce::File& inDirectory, Source inSource)
 {
-    mJobs[indexOf(inModelSize)]->begin(inDirectory);
+    mJobs[indexOf(inModelSize)]->begin(inDirectory, inSource);
 }
 
 void ModelDownloader::cancel(ModelSize inModelSize)
