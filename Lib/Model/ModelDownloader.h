@@ -53,7 +53,9 @@ public:
     ~ModelDownloader();
 
     /** Does nothing while this size is already busy. Resumes a part file if there is one. */
-    void start(ModelSize inModelSize, const juce::File& inDirectory, Source inSource = Source::HuggingFace);
+    void start(ModelSize inModelSize, const juce::File& inDirectory, Source inSource = Source::HuggingFace,
+               bool inReplaceInstalled = false);
+    bool useLocalFile(ModelSize inModelSize, const juce::File& inFile);
 
     /** Returns without waiting. The part file is kept, so the next start resumes. */
     void cancel(ModelSize inModelSize);

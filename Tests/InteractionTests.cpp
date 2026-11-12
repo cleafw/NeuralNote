@@ -4,6 +4,7 @@
 #include "NNFileUtils.h"
 #include "ModelManifest.h"
 #include "ModelDownloader.h"
+#include "ModelDownloadPanel.h"
 #include "Sidebar.h"
 #include "NnEditorConstrainer.h"
 #include "NeuralNoteMainView.h"
@@ -19,6 +20,30 @@ static juce::MouseEvent eventFor(juce::Component& component, juce::Point<float> 
 int main(int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI gui;
+    if (argc == 4 && juce::String(argv[1]) == "--verify-local-model") {
+        const auto folder = juce::File(juce::String::fromUTF8(argv[2]));
+        for (const auto size : ALL_MODEL_SIZES) {
+            if (juce::String(argv[3]) != modelSizeToString(size)) continue;
+            const auto checkpoint = folder.getChildFile(getModelManifestEntry(size).fileName);
+            ModelDownloader downloader;
+            if (!downloader.useLocalFile(size, checkpoint)) return 2;
+            auto status = downloader.getStatus(size);
+            while (status.isBusy()) {
+                juce::Thread::sleep(100);
+                status = downloader.getStatus(size);
+            }
+            if (status.phase == ModelDownloader::Phase::Failed) {
+                std::fprintf(stderr, "%s\n", status.errorMessage.toRawUTF8());
+                return 1;
+            }
+            if (NNFileUtils::getModelFile(size) != checkpoint || !NNFileUtils::isModelInstalled(size)) return 1;
+            auto model = msl::Transcriber::load(NNFileUtils::toPath(checkpoint));
+            if (!model) return 1;
+            std::printf("PASS: local model verified, registered and loaded on %s\n", model->device().name.c_str());
+            return 0;
+        }
+        return 2;
+    }
     if (argc == 4 && juce::String(argv[1]) == "--verify-model-mirror") {
         const auto folder = juce::File(juce::String::fromUTF8(argv[2]));
         for (const auto size : ALL_MODEL_SIZES) {
@@ -79,10 +104,59 @@ int main(int argc, char** argv)
               "resuming needs space for the remaining bytes in the confirmed folder");
         check(NNFileUtils::getModelDownloadBytesRequired(size, directory.getChildFile("another-drive-folder")) == total,
               "a different destination needs the full model size");
+        const auto invalidFile = directory.getChildFile(getModelManifestEntry(size).fileName);
+        const auto originalDirectory = NNFileUtils::getModelDirectory(size);
+        ModelDownloader downloader;
+        check(invalidFile.replaceWithText("not a checkpoint") && downloader.useLocalFile(size, invalidFile),
+              "local model validation runs in the model worker");
+        auto status = downloader.getStatus(size);
+        while (status.isBusy()) {
+            juce::Thread::sleep(10);
+            status = downloader.getStatus(size);
+        }
+        check(status.phase == ModelDownloader::Phase::Failed && NNFileUtils::getModelDirectory(size) == originalDirectory,
+              "invalid local model leaves the active model location unchanged");
+        part.deleteFile();
+        const auto makeSizedFile = [total](const juce::File& file, char marker) {
+            juce::FileOutputStream stream(file);
+            return stream.openedOk() && stream.setPosition(total - 1) && stream.write(&marker, 1);
+        };
+        check(makeSizedFile(invalidFile, 'o')
+              && NNFileUtils::getModelDownloadBytesRequired(size, directory) == 0
+              && NNFileUtils::getModelDownloadBytesRequired(size, directory, true) == total,
+              "re-downloading an installed model reserves space for a new checkpoint");
+        const bool createdReplacement = makeSizedFile(part, 'x') && part.getSize() == total;
+        check(createdReplacement, "create a corrupted replacement checkpoint fixture");
+        if (createdReplacement) {
+            ModelDownloader replacement;
+            replacement.start(size, directory, ModelDownloader::Source::GitHub, true);
+            auto replacementStatus = replacement.getStatus(size);
+            while (replacementStatus.isBusy()) {
+                juce::Thread::sleep(20);
+                replacementStatus = replacement.getStatus(size);
+            }
+            check(replacementStatus.phase == ModelDownloader::Phase::Failed && !part.existsAsFile()
+                  && invalidFile.getSize() == total && NNFileUtils::getModelDirectory(size) == originalDirectory,
+                  "failed replacement keeps the previous checkpoint and directory");
+        }
+        invalidFile.deleteFile();
         part.deleteFile();
         directory.deleteFile();
     }
     NeuralNoteAudioProcessor processor;
+    {
+        ModelDownloadPanel panel(processor);
+        panel.setSize(ModelDownloadPanel::getIdealWidth(), ModelDownloadPanel::getIdealHeight());
+        int downloadActions = 0;
+        int manualActions = 0;
+        for (auto* child : panel.getChildren()) {
+            if (child->getName() == "DownloadModel" && child->isVisible()) ++downloadActions;
+            if ((child->getName() == "LoadLocalModel" || child->getName() == "ManualModelDownload")
+                && child->isVisible() && panel.getLocalBounds().contains(child->getBounds())) ++manualActions;
+        }
+        check(downloadActions == 3, "all models have a download action, including installed models");
+        check(manualActions == 2, "local model and manual download actions fit in the model panel");
+    }
     check(!processor.getTranscriptionManager()->canRestartTranscription(), "empty project cannot regenerate MIDI");
     Keyboard keyboard;
     keyboard.setVisible(true);

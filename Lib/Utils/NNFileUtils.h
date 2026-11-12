@@ -29,12 +29,13 @@ juce::File getModelsDirectory();
 
 /** Per-model location selected before downloading; persisted separately from global settings. */
 juce::File getModelDirectory(ModelSize inModelSize);
-bool setModelDirectory(ModelSize inModelSize, const juce::File& inDirectory);
+bool setModelDirectory(ModelSize inModelSize, const juce::File& inDirectory, bool inRequireWritable = true);
 /** Suggests a portable location without creating or saving the model folder. */
 juce::File suggestModelDownloadDirectory(ModelSize inModelSize);
 
 /** Bytes still needed in this destination, including any resumable partial download. */
-juce::int64 getModelDownloadBytesRequired(ModelSize inModelSize, const juce::File& inDirectory);
+juce::int64 getModelDownloadBytesRequired(ModelSize inModelSize, const juce::File& inDirectory,
+                                        bool inReplaceInstalled = false);
 
 /** <NeuralNote>/global.settings, the settings shared by every instance. See NnGlobalSettings. */
 juce::File getGlobalSettingsFile();

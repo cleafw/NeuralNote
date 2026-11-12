@@ -6,7 +6,7 @@
 ; Identifies the installation across versions; must never change.
 AppId={{C01E3C5A-F330-421C-94D7-6264FC93B676}
 AppName=NeuralNote
-AppVersion=2.1.2
+AppVersion=2.1.3
 OutputBaseFilename=NeuralNote_Installer_Windows_x64
 DefaultDirName={commonpf}\NeuralNote
 DisableProgramGroupPage=yes

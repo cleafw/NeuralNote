@@ -4,6 +4,7 @@
 
 #include "ModelDownloadPanel.h"
 
+#include "ModelManifest.h"
 #include "NeuralNoteTooltips.h"
 #include "NNFileUtils.h"
 #include "NnFonts.h"
@@ -15,7 +16,7 @@
 
 namespace
 {
-constexpr int PANEL_WIDTH = 440;
+constexpr int PANEL_WIDTH = 488;
 constexpr float PANEL_CORNER = 8.0f;
 
 // Header, rows' contents and footer all start here, so they share one left edge.
@@ -45,6 +46,7 @@ constexpr int PERCENT_WIDTH = 32;
 
 constexpr int FOOTER_GAP = 10;
 constexpr int BUTTON_HEIGHT = 26;
+constexpr const char* QUARK_DOWNLOAD_URL = "https://pan.quark.cn/s/75f64075d604";
 constexpr float ICON_SIZE = 13.0f;
 constexpr float BAR_CORNER = 2.0f;
 constexpr int POLL_HZ = 10;
@@ -149,20 +151,26 @@ ModelDownloadPanel::ModelDownloadPanel(NeuralNoteAudioProcessor& inProcessor)
     addAndMakeVisible(mCloseButton);
 
     mOpenFolderButton.setIcon(nn::icons::folderStroked, NnFlatButton::IconStyle::stroked, ICON_SIZE);
-    mOpenFolderButton.setLabel(nn::tr("Open models folder"), nn::fonts::buttonLabel());
-    mOpenFolderButton.setPadding(10, 12, 7);
-    mOpenFolderButton.setCornerRadius(static_cast<float>(nn::metrics::controlCorner));
-    mOpenFolderButton.setColour(NnFlatButton::backgroundColourId, nn::colours::popupRowHover);
-    mOpenFolderButton.setColour(NnFlatButton::outlineColourId, nn::colours::popupBorder);
-    mOpenFolderButton.setColour(NnFlatButton::iconColourId, nn::colours::textIcon);
-    mOpenFolderButton.setColour(NnFlatButton::textColourId, nn::colours::textButton);
-    mOpenFolderButton.setWantsKeyboardFocus(false);
+    auto addFooterButton = [this](NnFlatButton& button, const juce::String& label) {
+        button.setLabel(label, nn::fonts::buttonLabel());
+        button.setPadding(10, 12, 7);
+        button.setCornerRadius(static_cast<float>(nn::metrics::controlCorner));
+        button.setColour(NnFlatButton::backgroundColourId, nn::colours::popupRowHover);
+        button.setColour(NnFlatButton::outlineColourId, nn::colours::popupBorder);
+        button.setColour(NnFlatButton::iconColourId, nn::colours::textIcon);
+        button.setColour(NnFlatButton::textColourId, nn::colours::textButton);
+        addAndMakeVisible(button);
+    };
+    addFooterButton(mOpenFolderButton, nn::tr("Open models folder"));
     mOpenFolderButton.onClick = [] {
         const auto size = NnGlobalSettings::getModelSize();
         auto folder = existingFolder(NNFileUtils::getModelDirectory(size));
         if (folder != juce::File()) NNFileUtils::openDirectory(folder);
     };
-    addAndMakeVisible(mOpenFolderButton);
+    addFooterButton(mLocalModelButton, nn::tr("Load local model..."));
+    mLocalModelButton.onClick = [this] { _chooseLocalModel(); };
+    addFooterButton(mManualDownloadButton, nn::tr("Quark download"));
+    mManualDownloadButton.onClick = [] { juce::URL(QUARK_DOWNLOAD_URL).launchInDefaultBrowser(); };
 
     mHasInstalledModel = NNFileUtils::isAnyModelInstalled();
     _updateRows(true);
@@ -180,10 +188,47 @@ void ModelDownloadPanel::_chooseDownloadDirectory(ModelSize inModelSize)
     _showDownloadLocation(inModelSize, NNFileUtils::suggestModelDownloadDirectory(inModelSize).getFullPathName());
 }
 
+void ModelDownloadPanel::_chooseLocalModel()
+{
+    if (mLocalModelChooser || mImportingSize) return;
+    mLocalModelChooser = std::make_unique<juce::FileChooser>(
+        nn::tr("Load local model..."), juce::File(), "*.gguf", true, false, this);
+    const juce::Component::SafePointer<ModelDownloadPanel> safeThis(this);
+    mLocalModelChooser->launchAsync(
+        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [safeThis](const juce::FileChooser& chooser) {
+            const auto file = chooser.getResult();
+            juce::MessageManager::callAsync([safeThis, file] {
+                if (!safeThis) return;
+                safeThis->mLocalModelChooser.reset();
+                if (file == juce::File()) return;
+                for (const auto size : ALL_MODEL_SIZES) {
+                    const auto& entry = getModelManifestEntry(size);
+                    if (file.getFileName() == entry.fileName) {
+                        if (safeThis->mProcessor.getModelDownloader().useLocalFile(size, file)) {
+                            safeThis->mImportingSize = size;
+                            safeThis->timerCallback();
+                            return;
+                        }
+                        juce::AlertWindow::showMessageBoxAsync(
+                            juce::MessageBoxIconType::WarningIcon, nn::tr("Load local model..."),
+                            nn::tr("This model is busy or the file is no longer available."));
+                        return;
+                    }
+                }
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::MessageBoxIconType::WarningIcon, nn::tr("Load local model..."),
+                    nn::tr("Choose a complete MuScriptor GGUF file with its original name."));
+            });
+        });
+}
+
 void ModelDownloadPanel::_showDownloadLocation(ModelSize inModelSize, const juce::String& inPath,
                                                const juce::String& inError)
 {
     auto message = nn::tr("Enter a full folder path or browse, then choose a download source.");
+    if (NNFileUtils::isModelInstalled(inModelSize))
+        message += "\n\n" + nn::tr("The existing model is kept until the new download is verified.");
     if (inError.isNotEmpty()) message = inError + "\n\n" + message;
     mDownloadLocation = std::make_unique<juce::AlertWindow>(
         nn::tr("Choose model download folder"), message, juce::MessageBoxIconType::NoIcon, this);
@@ -242,7 +287,8 @@ void ModelDownloadPanel::_confirmDownloadLocation(ModelSize inModelSize, const j
     }
     const juce::File directory(inPath);
     const auto volumeFolder = existingFolder(directory);
-    const auto required = NNFileUtils::getModelDownloadBytesRequired(inModelSize, directory);
+    const bool replacing = NNFileUtils::isModelInstalled(inModelSize);
+    const auto required = NNFileUtils::getModelDownloadBytesRequired(inModelSize, directory, replacing);
     const auto available = volumeFolder == juce::File() ? -1 : volumeFolder.getBytesFreeOnVolume();
     if (volumeFolder != juce::File() && available >= 0 && available < required) {
         const auto error = nn::tr("Not enough space in this folder. Required: {required}. Available: {available}.")
@@ -250,13 +296,15 @@ void ModelDownloadPanel::_confirmDownloadLocation(ModelSize inModelSize, const j
         _showDownloadLocation(inModelSize, inPath, error);
         return;
     }
-    if (volumeFolder == juce::File() || !NNFileUtils::setModelDirectory(inModelSize, directory)) {
+    if (volumeFolder == juce::File()
+        || (replacing ? (!NNFileUtils::ensureDirectoryExists(directory) || !directory.hasWriteAccess())
+                      : !NNFileUtils::setModelDirectory(inModelSize, directory))) {
         _showDownloadLocation(inModelSize, inPath,
                               nn::tr("Could not save the model folder. Please choose a writable folder."));
         return;
     }
     mChoosingDirectory = false;
-    downloader.start(inModelSize, directory, inSource);
+    downloader.start(inModelSize, directory, inSource, replacing);
     timerCallback();
 }
 
@@ -280,6 +328,14 @@ void ModelDownloadPanel::setCloseButtonVisible(bool inVisible)
 
 void ModelDownloadPanel::timerCallback()
 {
+    if (mImportingSize) {
+        const auto status = mProcessor.getModelDownloader().getStatus(*mImportingSize);
+        if (!status.isBusy()) {
+            if (status.phase == ModelDownloader::Phase::Idle && NNFileUtils::isModelInstalled(*mImportingSize))
+                NnGlobalSettings::setModelSize(*mImportingSize);
+            mImportingSize.reset();
+        }
+    }
     const bool has_installed_model = NNFileUtils::isAnyModelInstalled();
     const bool installed_changed = has_installed_model != mHasInstalledModel;
     mHasInstalledModel = has_installed_model;
@@ -324,10 +380,11 @@ bool ModelDownloadPanel::_updateRows(bool inForce)
 
         row->downloadButton.setLabel(status.phase == ModelDownloader::Phase::Failed ? nn::tr("Retry in...")
                                      : status.downloadedBytes > 0                   ? nn::tr("Resume in...")
+                                     : row->isInstalled                             ? nn::tr("Download again...")
                                                                                     : nn::tr("Download to..."),
                                      nn::fonts::buttonLabel());
-        row->downloadButton.setVisible(!row->isInstalled && !status.isBusy());
-        row->cancelButton.setVisible(!row->isInstalled && status.phase == ModelDownloader::Phase::Downloading);
+        row->downloadButton.setVisible(!status.isBusy());
+        row->cancelButton.setVisible(status.phase == ModelDownloader::Phase::Downloading);
     }
 
     // A relabelled button is a resized one.
@@ -363,8 +420,11 @@ void ModelDownloadPanel::resized()
 
     area.removeFromTop(FOOTER_GAP - ROW_GAP);
 
-    const int folder_width = mOpenFolderButton.getIdealWidth();
-    mOpenFolderButton.setBounds(area.removeFromTop(BUTTON_HEIGHT).withTrimmedLeft(CONTENT_X).withWidth(folder_width));
+    auto footer = area.removeFromTop(BUTTON_HEIGHT).reduced(CONTENT_X, 0);
+    for (auto* button : {&mOpenFolderButton, &mLocalModelButton, &mManualDownloadButton}) {
+        button->setBounds(footer.removeFromLeft(button->getIdealWidth()));
+        footer.removeFromLeft(CONTROL_GAP);
+    }
 }
 
 void ModelDownloadPanel::paint(juce::Graphics& g)
@@ -417,9 +477,7 @@ void ModelDownloadPanel::paint(juce::Graphics& g)
         column.removeFromLeft(content.getWidth() - CONTROL_COLUMN_WIDTH);
         auto text = content;
 
-        if (row.isInstalled) {
-            // Nothing on the right: the whole row is the control.
-        } else if (status.phase == ModelDownloader::Phase::Downloading) {
+        if (status.phase == ModelDownloader::Phase::Downloading) {
             text.setRight(column.getX() - CONTROL_GAP);
 
             column.removeFromRight(nn::metrics::cancelHitSize + CONTROL_GAP);
@@ -467,8 +525,8 @@ void ModelDownloadPanel::paint(juce::Graphics& g)
                    juce::Justification::centredLeft,
                    true);
 
-        const bool failed = !row.isInstalled && status.phase == ModelDownloader::Phase::Failed;
-        const bool busy = !row.isInstalled && status.isBusy();
+        const bool failed = status.phase == ModelDownloader::Phase::Failed;
+        const bool busy = status.phase == ModelDownloader::Phase::Downloading;
         const juce::String separator = "  " + nn::separatorDot() + "  ";
 
         const juce::String meta = failed ? status.errorMessage

@@ -10,7 +10,7 @@
 
 ## 直接下载
 
-**中文和英文共用同一个安装包。** 按电脑系统选择下面一行即可。链接指向本仓库最新正式版，目前为 [v2.1.2](https://github.com/cleafw/NeuralNote/releases/tag/v2.1.2)。
+**中文和英文共用同一个安装包。** 按电脑系统选择下面一行即可。链接指向本仓库的[最新正式版](https://github.com/cleafw/NeuralNote/releases/latest)。
 
 | 你的电脑 | 推荐下载 | 其他选择 |
 | --- | --- | --- |
@@ -150,6 +150,8 @@ Windows 当前配置保存在 `<用户主目录>/.neuralnote`，日志位于其 
 模型源为 [DamRsn/muscriptor-gguf](https://huggingface.co/DamRsn/muscriptor-gguf)。手动下载时使用程序支持的 `v1` 文件，保持原文件名与内容，例如 `muscriptor-medium-f16.gguf`。软件更新检查则指向 **cleafw/NeuralNote** 的正式 Releases，推送代码不等于发布新版。
 
 连不上 Hugging Face 时，支持备用下载的版本可在模型下载窗口选择 **从 GitHub 下载**；大型模型会自动下载两片、合并并校验后安装。也可以从 [模型备用下载页](https://github.com/cleafw/project-downloads/tree/main/projects/neuralnote/muscriptor-v1) 手动下载，其中有合并步骤和 SHA-256 校验值。两个站都无法访问时，这个备用入口也无法使用。
+
+还可从 [夸克网盘](https://pan.quark.cn/s/75f64075d604) 下载完整模型（无需合并，网盘可能要求登录）。在支持本地加载的版本中，打开模型面板 → **加载本地模型…**，选择原名的 `.gguf` 文件。软件会核对 SHA-256 并直接使用该位置。已安装模型也可点 **重新下载…**，新文件通过校验前保留原模型。
 
 ## GitHub 自动编译与发布
 

@@ -8,6 +8,7 @@
 #include <array>
 #include <functional>
 #include <memory>
+#include <optional>
 
 #include <JuceHeader.h>
 
@@ -72,8 +73,11 @@ private:
     void _showDownloadLocation(ModelSize inModelSize, const juce::String& inPath, const juce::String& inError = {});
     void _browseDownloadLocation(ModelSize inModelSize, const juce::String& inPath);
     void _confirmDownloadLocation(ModelSize inModelSize, const juce::String& inPath, ModelDownloader::Source inSource);
+    void _chooseLocalModel();
     std::unique_ptr<juce::FileChooser> mDirectoryChooser;
+    std::unique_ptr<juce::FileChooser> mLocalModelChooser;
     std::unique_ptr<juce::AlertWindow> mDownloadLocation;
+    std::optional<ModelSize> mImportingSize;
     bool mChoosingDirectory = false;
 
     /**
@@ -91,6 +95,8 @@ private:
 
     NnFlatButton mCloseButton {"CloseModelPanel"};
     NnFlatButton mOpenFolderButton {"OpenModelsFolder"};
+    NnFlatButton mLocalModelButton {"LoadLocalModel"};
+    NnFlatButton mManualDownloadButton {"ManualModelDownload"};
 
     bool mHasInstalledModel = false;
     int mHoveredRow = -1;

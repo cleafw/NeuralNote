@@ -213,6 +213,14 @@ TopBar::TopBar(NeuralNoteAudioProcessor& inProcessor)
     mSettingsButton.setWantsKeyboardFocus(false);
     addAndMakeVisible(mSettingsButton);
 
+    mContactButton.setLabel(nn::tr("Contact us"), nn::fonts::buttonLabel());
+    mContactButton.setPadding(9, 9, 0);
+    mContactButton.setColour(NnFlatButton::backgroundColourId, nn::colours::bgControl);
+    mContactButton.setColour(NnFlatButton::textColourId, nn::colours::textButton);
+    mContactButton.setTooltip(nn::tr("Open the maintainer's Bilibili profile"));
+    mContactButton.onClick = [] { juce::URL("https://space.bilibili.com/40005809").launchInDefaultBrowser(); };
+    addAndMakeVisible(mContactButton);
+
     updateEnablements();
 }
 
@@ -221,6 +229,10 @@ void TopBar::resized()
     // The wordmark sits over the sidebar. The four groups share the stretch over the content area,
     // from the sidebar's edge line to the right padding.
     auto bounds = getLocalBounds().withTrimmedBottom(1).withTrimmedRight(PADDING_RIGHT);
+    auto contact = bounds.removeFromRight(mContactButton.getIdealWidth());
+    contact.setHeight(getWidth() < 1200 ? bounds.getHeight() / 2 : bounds.getHeight());
+    mContactButton.setBounds(contact.withSizeKeepingCentre(contact.getWidth(), nn::metrics::controlHeight));
+    bounds.removeFromRight(nn::metrics::controlGap);
     bounds.setLeft(nn::metrics::sidebarWidth - 1);
 
     const auto label_font = nn::fonts::pillLabel();

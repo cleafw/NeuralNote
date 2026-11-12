@@ -72,10 +72,10 @@ juce::File getModelDirectory(ModelSize inModelSize)
     return juce::File::isAbsolutePath(path) ? juce::File(path) : getModelsDirectory();
 }
 
-bool setModelDirectory(ModelSize inModelSize, const juce::File& inDirectory)
+bool setModelDirectory(ModelSize inModelSize, const juce::File& inDirectory, bool inRequireWritable)
 {
-    if (!ensureDirectoryExists(inDirectory) || !inDirectory.hasWriteAccess()
-        || !ensureDirectoryExists(getNeuralNoteDirectory())) {
+    if ((inRequireWritable && (!ensureDirectoryExists(inDirectory) || !inDirectory.hasWriteAccess()))
+        || !inDirectory.isDirectory() || !ensureDirectoryExists(getNeuralNoteDirectory())) {
         return false;
     }
     return getNeuralNoteDirectory()
@@ -210,10 +210,11 @@ juce::File getModelPartFile(ModelSize inModelSize, const juce::File& inDirectory
                                              + juce::String(entry.sha256).substring(0, 8) + ".part");
 }
 
-juce::int64 getModelDownloadBytesRequired(ModelSize inModelSize, const juce::File& inDirectory)
+juce::int64 getModelDownloadBytesRequired(ModelSize inModelSize, const juce::File& inDirectory,
+                                        bool inReplaceInstalled)
 {
     const auto& entry = getModelManifestEntry(inModelSize);
-    if (inDirectory.getChildFile(entry.fileName).getSize() == entry.numBytes) return 0;
+    if (!inReplaceInstalled && inDirectory.getChildFile(entry.fileName).getSize() == entry.numBytes) return 0;
     const auto partBytes = getModelPartFile(inModelSize, inDirectory).getSize();
     return entry.numBytes - (partBytes <= entry.numBytes ? partBytes : 0);
 }

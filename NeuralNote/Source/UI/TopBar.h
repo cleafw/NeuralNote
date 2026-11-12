@@ -92,6 +92,7 @@ private:
 
     NnFlatButton mMuteButton {"Mute"};
     NnFlatButton mSettingsButton {"Settings"};
+    NnFlatButton mContactButton {"ContactUs"};
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> mMuteAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mMixAttachment;

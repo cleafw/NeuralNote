@@ -1,6 +1,6 @@
 ## NeuralNote 社区版 / Community edition
 
-中文与英文共用同一程序，默认跟随系统语言。模型需在软件内单独下载，不包含在安装包里。
+中文与英文共用同一程序，默认跟随系统语言。模型不包含在安装包里，可在软件内下载，或下载完整的 GGUF 文件后在本地加载。
 
 ### 选择下载文件
 
@@ -20,16 +20,14 @@ Linux 推荐通过 `sudo apt install ./NeuralNote_Linux_x64.deb` 安装，使包
 
 ### 本版内容
 
-- 修复模型下载目录不够明确的问题。点“下载到…”可直接输入完整路径（例如 `G:\NeuralNote\models`）或浏览选盘。确认前只显示建议路径，确认时检查剩余空间。重试或继续下载也可改选目录。
-- 简体中文/英文界面、统一菜单和独立界面缩放。
-- 原声与乐器独立播放、音量、声相、静音、独奏和选定音色试听。
-- 乐器多选、分轨/批量 MIDI 导出、重新生成 MIDI。
-- 波形拖动定位、钢琴窗中键平移及 F11 全屏。
-- 应用更新只检查本仓库 Releases。
+- 模型下载可手动选 Hugging Face 或 GitHub。大型模型从 GitHub 下载时，程序会自动合并分片并校验。
+- 已安装的模型也显示「重新下载…」，新文件校验通过前保留原模型。
+- 模型面板底部新增「夸克网盘下载」和「加载本地模型…」。从 [夸克分享页](https://pan.quark.cn/s/75f64075d604) 下载任意一个完整的 `.gguf`，保留原文件名，在软件中选中即可。软件会校验并直接使用该位置，无需解压或移动；网盘下载可能需要登录。
+- 右上角「联系我们」直达 [「几个叶子」B 站主页](https://space.bilibili.com/40005809)。
 
 ### License and verification
 
-v2.1.2 model downloads display an editable destination before starting. Type an absolute path or browse to another drive, then confirm. The download checks the space needed in the chosen folder, including partial downloads available there.
+v2.1.3 adds GitHub model downloads, re-download for installed models, a [Quark Drive mirror](https://pan.quark.cn/s/75f64075d604), and **Load local model...**. Keep the original GGUF filename; NeuralNote verifies the selected file and uses it in place. GitHub large-model parts are joined automatically. **Contact us** opens the maintainer's Bilibili profile.
 
 This community binary distribution uses JUCE under AGPLv3; complete corresponding source is attached, and original component notices are retained. MuScriptor model weights are downloaded separately under CC BY-NC 4.0.
 

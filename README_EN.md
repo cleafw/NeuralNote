@@ -10,7 +10,7 @@ This is a community fork of [DamRsn/NeuralNote](https://github.com/DamRsn/Neural
 
 ## Direct downloads
 
-**Chinese and English use the same installer.** Choose your computer below. These links always download this fork's latest stable release, currently [v2.1.2](https://github.com/cleafw/NeuralNote/releases/tag/v2.1.2).
+**Chinese and English use the same installer.** Choose your computer below. These links download this fork's [latest stable release](https://github.com/cleafw/NeuralNote/releases/latest).
 
 | Your computer | Recommended download | Alternative / contents |
 | --- | --- | --- |
@@ -145,6 +145,8 @@ Windows settings live under `<user home>/.neuralnote`, with logs in `logs/Neural
 Models come from [DamRsn/muscriptor-gguf](https://huggingface.co/DamRsn/muscriptor-gguf). For manual installation use the supported `v1` files unchanged, keeping names such as `muscriptor-medium-f16.gguf`. Application update checks use **cleafw/NeuralNote** Releases, not upstream. Pushing commits alone does not publish a new version.
 
 If Hugging Face is unreachable, versions with mirror support offer **Download from GitHub** in the model download dialog. The large model is downloaded in two parts, joined, and verified before installation. The [model mirror page](https://github.com/cleafw/project-downloads/tree/main/projects/neuralnote/muscriptor-v1) also provides manual downloads, joining instructions, and SHA-256 checksums. The mirror still requires access to GitHub.
+
+The [Quark Drive mirror](https://pan.quark.cn/s/75f64075d604) offers complete GGUF files without splitting and may require a Quark login. In versions with local loading support, choose **Load local model...** in the model panel and select the downloaded `.gguf` with its original name. NeuralNote verifies it and uses it in place. **Download again...** keeps the existing model until the replacement is verified.
 
 ## Automated releases
 

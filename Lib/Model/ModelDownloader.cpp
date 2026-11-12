@@ -77,23 +77,28 @@ public:
         stopThread(-1);
     }
 
-    void begin(const juce::File& inDirectory, Source inSource)
+    bool begin(const juce::File& inDirectory, Source inSource, bool inReplaceInstalled,
+               const juce::File& inLocalFile = {})
     {
         if (isThreadRunning()) {
-            return;
+            return false;
         }
 
         // Before the thread starts, so a status read in between does not see the last run's phase.
         mTargetFile = inDirectory.getChildFile(getModelManifestEntry(mModelSize).fileName);
         mSource = inSource;
+        mReplaceInstalled = inReplaceInstalled;
+        mLocalFile = inLocalFile;
         mPartFile = NNFileUtils::getModelPartFile(mModelSize, inDirectory);
         mDownloadedBytes = mPartFile.getSize();
-        mPhase = Phase::Downloading;
+        mPhase = mLocalFile == juce::File() ? Phase::Downloading : Phase::Verifying;
 
         // Consumes a notify() left by a stop that found no retry delay to wake.
         wait(0);
 
-        startThread();
+        if (startThread()) return true;
+        mPhase = Phase::Idle;
+        return false;
     }
 
     void requestStop()
@@ -154,7 +159,7 @@ private:
     {
         const ModelManifestEntry& entry = getModelManifestEntry(mModelSize);
 
-        if (mTargetFile.getSize() == entry.numBytes) {
+        if (!mReplaceInstalled && mLocalFile == juce::File() && mTargetFile.getSize() == entry.numBytes) {
             return {};
         }
 
@@ -168,6 +173,16 @@ private:
         }
 
         const juce::File directory = mTargetFile.getParentDirectory();
+
+        if (mLocalFile != juce::File()) {
+            if (mLocalFile != mTargetFile || mLocalFile.getSize() != entry.numBytes
+                || juce::SHA256(mLocalFile).toHexString() != entry.sha256)
+                return nn::tr("This file does not match the official MuScriptor model.");
+            if (threadShouldExit()) return {};
+            if (!NNFileUtils::setModelDirectory(mModelSize, directory, false))
+                return nn::tr("Could not save the local model location.");
+            return {};
+        }
 
         if (!NNFileUtils::ensureDirectoryExists(directory)) {
             return nn::tr("Could not create ") + directory.getFullPathName();
@@ -230,8 +245,11 @@ private:
         }
 
         // Replaces a checkpoint of the wrong size, which is what a file from another release is.
-        if (!part.moveFileTo(mTargetFile)) {
+        if (!part.replaceFileIn(mTargetFile)) {
             return nn::tr("Could not move the model into ") + directory.getFullPathName();
+        }
+        if (mReplaceInstalled && !NNFileUtils::setModelDirectory(mModelSize, directory)) {
+            return nn::tr("Could not save the local model location.");
         }
 
         NnLogger::write(NnLogger::Level::Info,
@@ -367,6 +385,8 @@ private:
 
     const ModelSize mModelSize;
     Source mSource = Source::HuggingFace;
+    bool mReplaceInstalled = false;
+    juce::File mLocalFile;
     juce::File mTargetFile;
     juce::File mPartFile;
 
@@ -406,9 +426,16 @@ ModelDownloader::~ModelDownloader()
     }
 }
 
-void ModelDownloader::start(ModelSize inModelSize, const juce::File& inDirectory, Source inSource)
+void ModelDownloader::start(ModelSize inModelSize, const juce::File& inDirectory, Source inSource,
+                            bool inReplaceInstalled)
 {
-    mJobs[indexOf(inModelSize)]->begin(inDirectory, inSource);
+    mJobs[indexOf(inModelSize)]->begin(inDirectory, inSource, inReplaceInstalled);
+}
+
+bool ModelDownloader::useLocalFile(ModelSize inModelSize, const juce::File& inFile)
+{
+    if (!inFile.existsAsFile()) return false;
+    return mJobs[indexOf(inModelSize)]->begin(inFile.getParentDirectory(), Source::HuggingFace, false, inFile);
 }
 
 void ModelDownloader::cancel(ModelSize inModelSize)
