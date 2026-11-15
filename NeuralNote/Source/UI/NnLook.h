@@ -20,51 +20,52 @@
  */
 namespace nn::colours
 {
+void applyTheme(bool light);
 inline juce::Colour rgb(juce::uint32 hex)
 {
     return juce::Colour(hex).withAlpha(1.0f);
 }
 
 // ---- surfaces -----------------------------------------------------------
-inline const juce::Colour windowBorder = rgb(0x26282e);
-inline const juce::Colour bgRoot = rgb(0x131417); // main content / piano roll bg
-inline const juce::Colour bgTopBar = rgb(0x17181c);
-inline const juce::Colour bgSidebar = rgb(0x161719);
-inline const juce::Colour bgPanel = rgb(0x15161a); // waveform, ruler, status bar
-inline const juce::Colour bgGutter = bgSidebar; // key column, amplitude scale
-inline const juce::Colour bgControl = rgb(0x1c1e23); // top bar pills
-inline const juce::Colour bgControlAlt = rgb(0x1b1d21); // toolbar pills
-inline const juce::Colour bgControlSubtle = rgb(0x1f2126); // M/S off, "+" button, hover surface
-inline const juce::Colour bgControlActive = rgb(0x22242a); // pause active, meter unlit
+inline juce::Colour windowBorder = rgb(0x26282e);
+inline juce::Colour bgRoot = rgb(0x131417); // main content / piano roll bg
+inline juce::Colour bgTopBar = rgb(0x17181c);
+inline juce::Colour bgSidebar = rgb(0x161719);
+inline juce::Colour bgPanel = rgb(0x15161a); // waveform, ruler, status bar
+inline juce::Colour bgGutter = bgSidebar; // key column, amplitude scale
+inline juce::Colour bgControl = rgb(0x1c1e23); // top bar pills
+inline juce::Colour bgControlAlt = rgb(0x1b1d21); // toolbar pills
+inline juce::Colour bgControlSubtle = rgb(0x1f2126); // M/S off, "+" button, hover surface
+inline juce::Colour bgControlActive = rgb(0x22242a); // pause active, meter unlit
 
 // ---- dividers -----------------------------------------------------------
-inline const juce::Colour divStrong = rgb(0x24262c); // top bar / sidebar edges
-inline const juce::Colour divSoft = rgb(0x202227); // section separators
-inline const juce::Colour divRow = rgb(0x1e2024); // between instrument strips
-inline const juce::Colour divTick = rgb(0x22242a); // ruler ticks
-inline const juce::Colour divOctave = rgb(0x232529); // C-row separator in the grid
+inline juce::Colour divStrong = rgb(0x24262c); // top bar / sidebar edges
+inline juce::Colour divSoft = rgb(0x202227); // section separators
+inline juce::Colour divRow = rgb(0x1e2024); // between instrument strips
+inline juce::Colour divTick = rgb(0x22242a); // ruler ticks
+inline juce::Colour divOctave = rgb(0x232529); // C-row separator in the grid
 
 // ---- text ---------------------------------------------------------------
-inline const juce::Colour textBright = rgb(0xf2f4f7); // wordmark, transport time, playhead
-inline const juce::Colour textPrimary = rgb(0xe7e9ec); // default
-inline const juce::Colour textStrong = rgb(0xdcdfe4); // instrument names
-inline const juce::Colour textFile = rgb(0xd7dade); // filename, tempo value
-inline const juce::Colour textButton = rgb(0xc2c6cc); // toolbar button labels
-inline const juce::Colour textIcon = rgb(0x9ba1ab); // idle icons
-inline const juce::Colour textIconSoft = rgb(0x8e939c);
-inline const juce::Colour textLabel = rgb(0x7a808a); // section headers, muted names
-inline const juce::Colour textDim = rgb(0x6b7078); // dB values, M/S off
-inline const juce::Colour textFaint = rgb(0x5d626b); // total duration, ruler labels
-inline const juce::Colour textFainter = rgb(0x585d65); // status bar, meta lines
-inline const juce::Colour textScale = rgb(0x4e535b); // amplitude scale, corner label
-inline const juce::Colour textSeparator = rgb(0x33363c); // status bar separator dot
+inline juce::Colour textBright = rgb(0xf2f4f7); // wordmark, transport time, playhead
+inline juce::Colour textPrimary = rgb(0xe7e9ec); // default
+inline juce::Colour textStrong = rgb(0xdcdfe4); // instrument names
+inline juce::Colour textFile = rgb(0xd7dade); // filename, tempo value
+inline juce::Colour textButton = rgb(0xc2c6cc); // toolbar button labels
+inline juce::Colour textIcon = rgb(0x9ba1ab); // idle icons
+inline juce::Colour textIconSoft = rgb(0x8e939c);
+inline juce::Colour textLabel = rgb(0x7a808a); // section headers, muted names
+inline juce::Colour textDim = rgb(0x6b7078); // dB values, M/S off
+inline juce::Colour textFaint = rgb(0x5d626b); // total duration, ruler labels
+inline juce::Colour textFainter = rgb(0x585d65); // status bar, meta lines
+inline juce::Colour textScale = rgb(0x4e535b); // amplitude scale, corner label
+inline juce::Colour textSeparator = rgb(0x33363c); // status bar separator dot
 
 // ---- accent -------------------------------------------------------------
-inline const juce::Colour accent = rgb(0x6e9bff);
-inline const juce::Colour accentText = rgb(0xa8c2ff);
-inline const juce::Colour warn = rgb(0xf2a33c); // mute, clip, hot meter segments
-inline const juce::Colour rec = rgb(0xff6b8a);
-inline const juce::Colour recIdle = rec.withMultipliedBrightness(0.48f);
+inline juce::Colour accent = rgb(0x6e9bff);
+inline juce::Colour accentText = rgb(0xa8c2ff);
+inline juce::Colour warn = rgb(0xf2a33c); // mute, clip, hot meter segments
+inline juce::Colour rec = rgb(0xff6b8a);
+inline juce::Colour recIdle = rec.withMultipliedBrightness(0.48f);
 
 /** An active top bar button's background, in its own colour. */
 inline juce::Colour activeFill(juce::Colour inColour)
@@ -117,28 +118,28 @@ inline juce::Colour accentWashEdge()
 // One set of segment colours for every meter, the master's. An instrument's own colour is already
 // carried by its chip and its fader, and repeating it here would make "hot" a different hue on
 // every row -- which is what the handoff draws, and what it should not.
-inline const juce::Colour meterLow = rgb(0x4f7a52);
-inline const juce::Colour meterMid = rgb(0x8ec98c);
-inline const juce::Colour meterHot = warn;
+inline juce::Colour meterLow = rgb(0x4f7a52);
+inline juce::Colour meterMid = rgb(0x8ec98c);
+inline juce::Colour meterHot = warn;
 
-inline const juce::Colour meterUnlitStrip = bgControlActive;
-inline const juce::Colour meterUnlitMaster = bgControlSubtle;
+inline juce::Colour meterUnlitStrip = bgControlActive;
+inline juce::Colour meterUnlitMaster = bgControlSubtle;
 
 // ---- waveform -----------------------------------------------------------
-inline const juce::Colour wavePlayed = rgb(0x7d8797);
-inline const juce::Colour waveUnplayed = rgb(0x3a3f47);
+inline juce::Colour wavePlayed = rgb(0x7d8797);
+inline juce::Colour waveUnplayed = rgb(0x3a3f47);
 
 inline juce::Colour waveCentreLine()
 {
-    return juce::Colours::white.withAlpha(0.05f);
+    return textPrimary.withAlpha(0.12f);
 }
 
 // ---- piano roll ---------------------------------------------------------
-inline const juce::Colour keyWhite = rgb(0xe2e4e8);
-inline const juce::Colour keyBlack = rgb(0x0e0f11);
-inline const juce::Colour keyLabel = textLabel;
-inline const juce::Colour laneBlack = rgb(0x141519);
-inline const juce::Colour laneWhite = rgb(0x191a1e);
+inline juce::Colour keyWhite = rgb(0xe2e4e8);
+inline juce::Colour keyBlack = rgb(0x0e0f11);
+inline juce::Colour keyLabel = textLabel;
+inline juce::Colour laneBlack = rgb(0x141519);
+inline juce::Colour laneWhite = rgb(0x191a1e);
 
 inline juce::Colour noteOnsetEdge()
 {
@@ -152,13 +153,13 @@ inline juce::Colour untranscribedShade()
 }
 
 // ---- fader --------------------------------------------------------------
-inline const juce::Colour faderTrack = rgb(0x26282e);
-inline const juce::Colour faderTrackTop = rgb(0x2b2e35); // top bar sliders
-inline const juce::Colour faderThumb = textPrimary;
-inline const juce::Colour faderThumbMuted = rgb(0x5a5f67);
-inline const juce::Colour faderFillMuted = rgb(0x3a3d44);
-inline const juce::Colour volumeFill = rgb(0x8e939c);
-inline const juce::Colour scrollbarThumb = rgb(0x2e3138);
+inline juce::Colour faderTrack = rgb(0x26282e);
+inline juce::Colour faderTrackTop = rgb(0x2b2e35); // top bar sliders
+inline juce::Colour faderThumb = textPrimary;
+inline juce::Colour faderThumbMuted = rgb(0x5a5f67);
+inline juce::Colour faderFillMuted = rgb(0x3a3d44);
+inline juce::Colour volumeFill = rgb(0x8e939c);
+inline juce::Colour scrollbarThumb = rgb(0x2e3138);
 
 inline juce::Colour mixSliderFill()
 {
@@ -192,15 +193,15 @@ inline juce::Colour soloRowTint()
 }
 
 // ---- popups -------------------------------------------------------------
-inline const juce::Colour popupBg = rgb(0x1b1d21);
-inline const juce::Colour popupBorder = rgb(0x2e3138);
-inline const juce::Colour popupFooterBg = rgb(0x191a1e);
-inline const juce::Colour popupRowHover = rgb(0x22242a);
-inline const juce::Colour popupTitle = textDim;
-inline const juce::Colour popupItem = rgb(0xa8adb5); // unticked row label
-inline const juce::Colour popupItemTicked = textPrimary;
-inline const juce::Colour checkboxBorder = rgb(0x3a3d44);
-inline const juce::Colour checkboxTick = rgb(0x12131a); // drawn on top of the accent fill
+inline juce::Colour popupBg = rgb(0x1b1d21);
+inline juce::Colour popupBorder = rgb(0x2e3138);
+inline juce::Colour popupFooterBg = rgb(0x191a1e);
+inline juce::Colour popupRowHover = rgb(0x22242a);
+inline juce::Colour popupTitle = textDim;
+inline juce::Colour popupItem = rgb(0xa8adb5); // unticked row label
+inline juce::Colour popupItemTicked = textPrimary;
+inline juce::Colour checkboxBorder = rgb(0x3a3d44);
+inline juce::Colour checkboxTick = rgb(0x12131a); // drawn on top of the accent fill
 
 inline juce::Colour popupShadow()
 {
@@ -208,9 +209,9 @@ inline juce::Colour popupShadow()
 }
 
 // ---- empty states -------------------------------------------------------
-inline const juce::Colour ctaBorder = accent;
-inline const juce::Colour ctaText = accentText;
-inline const juce::Colour dropZoneBorder = rgb(0x2b2e35);
+inline juce::Colour ctaBorder = accent;
+inline juce::Colour ctaText = accentText;
+inline juce::Colour dropZoneBorder = rgb(0x2b2e35);
 
 // No disabled variants here: every disabled control is its enabled self at DISABLED_ALPHA.
 
@@ -225,15 +226,15 @@ inline juce::Colour dropZoneFill()
 }
 
 // ---- transcription progress ---------------------------------------------
-inline const juce::Colour progressTrack = faderTrack;
-inline const juce::Colour progressFill = accent;
-inline const juce::Colour progressText = accentText;
+inline juce::Colour progressTrack = faderTrack;
+inline juce::Colour progressFill = accent;
+inline juce::Colour progressText = accentText;
 
 // ---- vertical zoom slider -----------------------------------------------
-inline const juce::Colour zoomIcon = textFainter;
-inline const juce::Colour zoomTrack = faderTrack;
-inline const juce::Colour zoomFill = rgb(0x6b7078);
-inline const juce::Colour zoomThumb = rgb(0xc2c6cc);
+inline juce::Colour zoomIcon = textFainter;
+inline juce::Colour zoomTrack = faderTrack;
+inline juce::Colour zoomFill = rgb(0x6b7078);
+inline juce::Colour zoomThumb = rgb(0xc2c6cc);
 } // namespace nn::colours
 
 namespace nn::metrics
@@ -497,6 +498,7 @@ class NeuralNoteLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     NeuralNoteLookAndFeel();
+    void refreshTheme();
 
     juce::Font getPopupMenuFont() override;
 

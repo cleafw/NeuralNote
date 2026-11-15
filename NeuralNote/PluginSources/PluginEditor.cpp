@@ -7,6 +7,12 @@
 #include "NnLook.h"
 
 namespace {
+void applyEditorTheme(juce::LookAndFeel& look)
+{
+    nn::colours::applyTheme(NnGlobalSettings::getLightTheme());
+    if (auto* themed = dynamic_cast<nn::NeuralNoteLookAndFeel*>(&look)) themed->refreshTheme();
+}
+
 // JUCE's standalone chrome and audio settings live outside the plugin editor.
 // Update only known dictionary entries, preserving driver/device names and IDs.
 void refreshFrameworkComponent(juce::Component& component)
@@ -51,6 +57,8 @@ NeuralNoteEditor::NeuralNoteEditor(NeuralNoteAudioProcessor& p)
     NnGlobalSettings::reload();
     nn::applyLanguage();
     mWasChinese = nn::usesChinese();
+    mWasLight = NnGlobalSettings::getLightTheme();
+    applyEditorTheme(getLookAndFeel());
     startTimerHz(2);
 
     mMainView = std::make_unique<NeuralNoteMainView>(p);
@@ -95,19 +103,32 @@ void NeuralNoteEditor::paint(juce::Graphics& g)
 
 void NeuralNoteEditor::refreshLanguage()
 {
+    refreshAppearance();
+}
+
+void NeuralNoteEditor::refreshAppearance()
+{
     mWasChinese = nn::usesChinese();
+    mWasLight = NnGlobalSettings::getLightTheme();
+    applyEditorTheme(getLookAndFeel());
     // Called asynchronously, after the old menu callback has returned. Audio and
     // transcription live in the processor and survive rebuilding the view.
     mMainView.reset();
     mMainView = std::make_unique<NeuralNoteMainView>(static_cast<NeuralNoteAudioProcessor&>(processor));
     addAndMakeVisible(*mMainView);
     resized();
+    if (juce::JUCEApplicationBase::isStandaloneApp()) {
+        auto& desktop = juce::Desktop::getInstance();
+        for (int index = 0; index < desktop.getNumComponents(); ++index)
+            desktop.getComponent(index)->sendLookAndFeelChange();
+    }
     repaint();
 }
 
 void NeuralNoteEditor::timerCallback()
 {
-    if (mWasChinese != nn::usesChinese()) refreshLanguage();
+    if (mWasChinese != nn::usesChinese() || mWasLight != NnGlobalSettings::getLightTheme())
+        refreshAppearance();
     refreshFrameworkWindows();
     auto* window = findParentComponentOfClass<juce::ResizableWindow>();
     if (!window || !window->isFullScreen()) {

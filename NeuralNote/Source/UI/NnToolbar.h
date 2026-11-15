@@ -13,6 +13,7 @@
 #include "MidiFileWriter.h"
 #include "NnFlatButton.h"
 #include "NumericTextEditor.h"
+#include "TempoAnalysis.h"
 
 class NeuralNoteAudioProcessor;
 
@@ -36,6 +37,7 @@ public:
 
 private:
     void _exportMidiFile();
+    void _showTempoTools();
 
     /** The bin: stops a running transcription, else drops the transcription, else the audio. */
     void _clearOneStep();
@@ -49,6 +51,8 @@ private:
     MidiFileDrag mDragButton;
     NnFlatButton mClearButton {"Clear"};
     NnFlatButton mRegenerateButton {"RegenerateMidi"};
+    NnFlatButton mTempoToolsButton {"TempoTools"};
+    nn::TapTempo mTapTempo;
 
     juce::Rectangle<int> mTempoPill;
 

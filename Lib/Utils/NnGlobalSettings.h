@@ -42,6 +42,8 @@ void reload();
 /** system (default), en, or zh-CN. */
 juce::String getLanguage();
 void setLanguage(const juce::String& language);
+bool getLightTheme();
+void setLightTheme(bool light);
 
 ModelSize getModelSize();
 void setModelSize(ModelSize inModelSize);

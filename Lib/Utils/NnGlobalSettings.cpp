@@ -99,6 +99,17 @@ void setLanguage(const juce::String& language)
     _saveAllSettings();
 }
 
+bool getLightTheme()
+{
+    return properties().getBoolValue("lightTheme", false);
+}
+
+void setLightTheme(bool light)
+{
+    properties().setValue("lightTheme", light);
+    _saveAllSettings();
+}
+
 ModelSize getModelSize()
 {
     const juce::String name = properties().getValue(MODEL_SIZE_KEY);

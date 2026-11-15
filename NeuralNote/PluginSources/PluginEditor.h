@@ -30,6 +30,7 @@ public:
     /** Sizes the window from inScale, clamped to the display, and persists what it settled on. */
     void applyScale(double inScale);
     void refreshLanguage();
+    void refreshAppearance();
 
     /** The factor actually in force, which a scale too large for the display will not match. */
     double getAppliedScale() const { return mScale; }
@@ -37,6 +38,7 @@ public:
 private:
     void timerCallback() override;
     bool mWasChinese = false;
+    bool mWasLight = false;
     /** Sizes the window without persisting, for the paths that are not the user asking. */
     void _setScale(double inScale);
 

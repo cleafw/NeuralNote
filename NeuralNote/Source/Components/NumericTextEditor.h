@@ -51,6 +51,7 @@ public:
             auto text = getText();
 
             if (inValidator(text)) {
+                if (onValidEdit) onValidEdit();
                 mProcessor->getValueTree().setPropertyExcludingListener(
                     this, inPropIdentifier, strToNumber(text), nullptr);
             }
@@ -80,6 +81,8 @@ public:
         mProcessor->removeListenerFromStateValueTree(this);
         Desktop::getInstance().removeGlobalMouseListener(this);
     }
+
+    std::function<void()> onValidEdit;
 
     void focusGained(FocusChangeType cause) override
     {

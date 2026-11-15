@@ -9,6 +9,8 @@
 #include "NnEditorConstrainer.h"
 #include "NeuralNoteMainView.h"
 #include "ComputeDevices.h"
+#include "TempoAnalysis.h"
+#include "NnLook.h"
 #include <cstdio>
 
 static juce::MouseEvent eventFor(juce::Component& component, juce::Point<float> position, int buttons)
@@ -20,6 +22,24 @@ static juce::MouseEvent eventFor(juce::Component& component, juce::Point<float> 
 int main(int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI gui;
+    if (argc == 2 && juce::String(argv[1]) == "--measure-audio") {
+        const auto path = juce::SystemStats::getEnvironmentVariable("NEURALNOTE_TEMPO_FIXTURE", {});
+        if (!juce::File::isAbsolutePath(path)) return 2;
+        NeuralNoteAudioProcessor processor;
+        auto* source = processor.getSourceAudioManager();
+        if (!source->onFileDrop(juce::File(path))) return 2;
+        using Status = SourceAudioManager::TempoStatus;
+        for (int poll = 0; poll < 500 && source->getTempoStatus() == Status::Analysing; ++poll) {
+            juce::Thread::sleep(20);
+            juce::Timer::callPendingTimersSynchronously();
+        }
+        if (source->getTempoStatus() != Status::Estimated) {
+            std::puts("No reliable tempo detected.");
+            return 1;
+        }
+        std::printf("Estimated BPM: %.1f\n", static_cast<double>(processor.getValueTree().getProperty(NnId::ExportTempoId)));
+        return 0;
+    }
     if (argc == 4 && juce::String(argv[1]) == "--verify-local-model") {
         const auto folder = juce::File(juce::String::fromUTF8(argv[2]));
         for (const auto size : ALL_MODEL_SIZES) {
@@ -94,6 +114,63 @@ int main(int argc, char** argv)
         if (!passed) ++failures;
     };
     {
+        constexpr int tempoRate = 16000;
+        for (const auto bpm : {73.0, 96.0, 121.0, 138.0, 180.0}) {
+            std::vector<float> samples(tempoRate * 19);
+            for (int beat = 0; ; ++beat) {
+                const int start = static_cast<int>((0.24 + beat * 30.0 / bpm) * tempoRate);
+                if (start + 960 >= static_cast<int>(samples.size())) break;
+                for (int index = 0; index < 960; ++index) {
+                    const double strength = beat % 2 == 0 ? 0.75 : 0.065;
+                    samples[start + index] += static_cast<float>(
+                        strength * std::exp(-index / 105.0)
+                        * std::sin(index * (beat % 2 == 0 ? 0.055 : 0.65)));
+                }
+            }
+            const auto measured = nn::estimateTempo(samples, tempoRate);
+            const auto label = "audio estimate near " + juce::String(bpm, 0) + " BPM (measured "
+                               + juce::String(measured.value_or(0.0), 1) + ")";
+            check(measured && std::abs(*measured - bpm) < 1.0, label.toRawUTF8());
+        }
+        std::vector<float> silence(tempoRate * 8);
+        check(!nn::estimateTempo(silence, tempoRate), "silence has no measured tempo");
+        for (std::size_t index = 0; index < silence.size(); ++index)
+            silence[index] = static_cast<float>(0.35 * std::sin(index * 0.1728));
+        check(!nn::estimateTempo(silence, tempoRate), "steady tone has no measured tempo");
+        std::vector<float> drifting(tempoRate * 90);
+        juce::Random random(47433);
+        for (int section = 0; section < 6; ++section) {
+            const auto bpm = 52.4 + section * 0.55;
+            for (double beat = section * 15.0 + 0.25; beat < (section + 1) * 15.0; beat += 60.0 / bpm) {
+                const int start = static_cast<int>((beat + 0.05 * random.nextFloat()) * tempoRate);
+                if (start + 720 >= static_cast<int>(drifting.size())) break;
+                for (int index = 0; index < 720; ++index)
+                    drifting[start + index] += static_cast<float>(0.6 * std::exp(-index / 160.0)
+                        * std::sin(index * (0.038 + 0.034 * section)));
+            }
+        }
+        const auto stableBpm = nn::estimateTempo(drifting, tempoRate);
+        check(stableBpm && std::abs(*stableBpm - 54.0) < 2.0,
+              "sections agree on the main beat despite gradual tempo and arrangement changes");
+        for (auto& sample : drifting) sample = 0.18f * (2.0f * random.nextFloat() - 1.0f);
+        check(!nn::estimateTempo(drifting, tempoRate), "unstructured noise is not mistaken for a beat");
+        nn::TapTempo taps;
+        check(!taps.tap(0.0) && !taps.tap(0.035) && !taps.tap(0.6) && !taps.tap(1.2),
+              "tap tempo ignores double clicks and waits for four taps");
+        check(taps.tap(1.8) == 100.0, "four taps at 600ms set 100 BPM");
+        check(!taps.tap(5.0) && taps.count() == 1, "tap timeout starts a fresh measurement");
+        taps.reset();
+        check(taps.count() == 0, "reset clears taps");
+        const auto original = nn::colours::bgRoot;
+        nn::colours::applyTheme(true);
+        check(nn::colours::bgRoot.getPerceivedBrightness() > 0.85f
+              && nn::colours::textPrimary.getPerceivedBrightness() < 0.30f
+              && nn::colours::popupItemTicked == nn::colours::textPrimary,
+              "light theme has light surfaces, dark text and matching menu aliases");
+        nn::colours::applyTheme(false);
+        check(nn::colours::bgRoot == original, "dark theme restores the original surface");
+    }
+    {
         const auto directory = juce::File::getSpecialLocation(juce::File::tempDirectory)
                                    .getNonexistentChildFile("NeuralNote-download-space", "");
         const auto size = ALL_MODEL_SIZES.front();
@@ -144,6 +221,59 @@ int main(int argc, char** argv)
         directory.deleteFile();
     }
     NeuralNoteAudioProcessor processor;
+    {
+        using Status = SourceAudioManager::TempoStatus;
+        const auto file = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                              .getNonexistentChildFile("NeuralNote-tempo", ".wav");
+        {
+            juce::WavAudioFormat format;
+            std::unique_ptr<juce::OutputStream> stream = file.createOutputStream();
+            auto writer = format.createWriterFor(stream, juce::AudioFormatWriterOptions()
+                .withSampleRate(16000).withNumChannels(1).withBitsPerSample(16));
+            juce::AudioBuffer<float> audio(1, 16000 * 12);
+            audio.clear();
+            for (int start = 1600; start + 400 < audio.getNumSamples(); start += 10000)
+                for (int index = 0; index < 400; ++index)
+                    audio.setSample(0, start + index, static_cast<float>(0.8 * std::sin(index * 0.1) * std::exp(-index / 80.0)));
+            check(writer && writer->writeFromAudioSampleBuffer(audio, 0, audio.getNumSamples()),
+                  "write rhythmic source fixture");
+        }
+        auto* source = processor.getSourceAudioManager();
+        auto& tree = processor.getValueTree();
+        check(source->onFileDrop(file) && source->getTempoStatus() == Status::Analysing,
+              "loading audio starts analysis without a transcription");
+        auto waitForTempo = [source] {
+            for (int poll = 0; poll < 150 && source->getTempoStatus() == Status::Analysing; ++poll) {
+                juce::Thread::sleep(20);
+                juce::Timer::callPendingTimersSynchronously();
+            }
+        };
+        waitForTempo();
+        check(source->getTempoStatus() == Status::Estimated
+              && std::abs(static_cast<double>(tree.getProperty(NnId::ExportTempoId)) - 96.0) < 0.8,
+              "background estimate updates export BPM");
+        source->analyseTempo();
+        source->markManualTempo();
+        tree.setProperty(NnId::ExportTempoId, 107.0, nullptr);
+        for (int poll = 0; poll < 8; ++poll) {
+            juce::Thread::sleep(20);
+            juce::Timer::callPendingTimersSynchronously();
+        }
+        check(source->getTempoStatus() == Status::Manual && static_cast<double>(tree.getProperty(NnId::ExportTempoId)) == 107.0,
+              "a pending analysis cannot overwrite manual BPM");
+        source->applyTapTempo(100.0);
+        juce::MemoryBlock session;
+        processor.getStateInformation(session);
+        {
+            NeuralNoteAudioProcessor restored;
+            restored.setStateInformation(session.getData(), static_cast<int>(session.getSize()));
+            check(static_cast<double>(restored.getValueTree().getProperty(NnId::ExportTempoId)) == 100.0
+                  && restored.getSourceAudioManager()->getTempoStatus() == Status::Restored,
+                  "restoring audio keeps the saved BPM without starting analysis");
+        }
+        processor.clear();
+        file.deleteFile();
+    }
     {
         ModelDownloadPanel panel(processor);
         panel.setSize(ModelDownloadPanel::getIdealWidth(), ModelDownloadPanel::getIdealHeight());
@@ -281,6 +411,21 @@ int main(int argc, char** argv)
     for(const auto& note: fixture) {
         check(MidiFileWriter().writeMidiFile(MidiFileWriter::selectPrograms(fixture,{note.program}),temp,120,0,MidiOverflowMode::ReuseChannels), "write one instrument per file");
         juce::FileInputStream input(temp); juce::MidiFile file; check(file.readFrom(input)&&file.getNumTracks()==2,"single instrument export has one musical track");
+    }
+    {
+        juce::MidiFile file;
+        check(MidiFileWriter().writeMidiFile(filtered, temp, 96.0, 0.0, MidiOverflowMode::ReuseChannels),
+              "write a MIDI file at 96 BPM");
+        juce::FileInputStream input(temp);
+        const bool read = file.readFrom(input);
+        auto* event = read && file.getTrack(0) ? file.getTrack(0)->getEventPointer(0) : nullptr;
+        bool foundTempo = false;
+        if (event != nullptr) {
+            for (const auto* item : *file.getTrack(0))
+                if (item->message.isTempoMetaEvent())
+                    foundTempo = std::abs(item->message.getTempoSecondsPerQuarterNote() - 0.625) < 0.00001;
+        }
+        check(foundTempo, "exported conductor track carries the chosen BPM");
     }
     temp.deleteFile();
     NnEditorConstrainer constrainer; constrainer.configure(nullptr);

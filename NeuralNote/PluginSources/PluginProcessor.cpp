@@ -109,6 +109,7 @@ void NeuralNoteAudioProcessor::setStateInformation(const void* data, int sizeInB
     ParameterHelpers::updateParametersFromState(full_state_tree.getChildWithName(NnId::ParametersId), mParams);
 
     _updateValueTree(full_state_tree.getChildWithName(NnId::NeuralNoteStateId));
+    mSourceAudioManager->restoreTempo();
 
     // After the value tree, which is what loads the audio the notes belong to.
     mTranscriptionManager->restoreFromStateTree(full_state_tree);

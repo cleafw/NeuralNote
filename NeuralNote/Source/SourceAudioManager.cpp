@@ -8,6 +8,7 @@
 #include "PluginProcessor.h"
 #include "NnLogger.h"
 #include "NnLocalisation.h"
+#include "TempoAnalysis.h"
 
 SourceAudioManager::SourceAudioManager(NeuralNoteAudioProcessor* inProcessor)
     : mProcessor(inProcessor)
@@ -18,7 +19,61 @@ SourceAudioManager::SourceAudioManager(NeuralNoteAudioProcessor* inProcessor)
 
 SourceAudioManager::~SourceAudioManager()
 {
+    _cancelTempo(TempoStatus::Default);
     mProcessor->removeListenerFromStateValueTree(this);
+}
+
+void SourceAudioManager::_cancelTempo(TempoStatus status)
+{
+    stopTimer();
+    if (mTempoResult) mTempoResult->store(-2.0);
+    mTempoResult.reset();
+    mTempoStatus = status;
+}
+
+void SourceAudioManager::analyseTempo()
+{
+    if (mIsRecording || mDownsampledSourceAudio.getNumSamples() == 0) return;
+    _cancelTempo(TempoStatus::Analysing);
+    constexpr int sampleRate = static_cast<int>(TRANSCRIPTION_SAMPLE_RATE);
+    constexpr int maxSamples = 90 * sampleRate;
+    const auto count = std::min(maxSamples, mDownsampledSourceAudio.getNumSamples());
+    const int start = std::min((mDownsampledSourceAudio.getNumSamples() - count) / 2,
+                               30 * sampleRate);
+    const auto* samples = mDownsampledSourceAudio.getReadPointer(0, start);
+    auto audio = std::make_shared<std::vector<float>>(samples, samples + count);
+    if (!mTempoPool) mTempoPool = std::make_unique<juce::ThreadPool>(1);
+    mTempoResult = std::make_shared<std::atomic<double>>(-1.0);
+    mTempoPool->addJob(std::function<void()>{[audio, result = mTempoResult] {
+        if (result->load() == -2.0) return;
+        result->store(nn::estimateTempo(*audio, sampleRate).value_or(0.0));
+    }});
+    startTimerHz(20);
+}
+
+void SourceAudioManager::timerCallback()
+{
+    if (!mTempoResult) return;
+    const auto bpm = mTempoResult->load();
+    if (bpm < 0.0) return;
+    _cancelTempo(bpm > 0.0 ? TempoStatus::Estimated : TempoStatus::Uncertain);
+    if (bpm > 0.0) mProcessor->getValueTree().setProperty(NnId::ExportTempoId, bpm, nullptr);
+}
+
+void SourceAudioManager::markManualTempo()
+{
+    _cancelTempo(TempoStatus::Manual);
+}
+
+void SourceAudioManager::applyTapTempo(double bpm)
+{
+    _cancelTempo(TempoStatus::Tapped);
+    mProcessor->getValueTree().setProperty(NnId::ExportTempoId, bpm, nullptr);
+}
+
+void SourceAudioManager::restoreTempo()
+{
+    _cancelTempo(TempoStatus::Restored);
 }
 
 void SourceAudioManager::prepareToPlay(double inSampleRate, int inSamplesPerBlock)
@@ -272,7 +327,11 @@ void SourceAudioManager::stopRecording()
     // are no longer quite the same audio.
     // The tempo the take was played to is the one to export it at, so the toolbar field follows it.
     if (const double host_bpm = mHostBpm.load(); host_bpm > 0.0) {
+        _cancelTempo(TempoStatus::Host);
         mProcessor->getValueTree().setProperty(NnId::ExportTempoId, host_bpm, nullptr);
+    } else {
+        mProcessor->getValueTree().setProperty(NnId::ExportTempoId, 120.0, nullptr);
+        analyseTempo();
     }
 
     mWaveformPeaks.buildFrom(
@@ -285,7 +344,7 @@ void SourceAudioManager::stopRecording()
     mProcessor->setStateToAudioLoaded();
 }
 
-bool SourceAudioManager::onFileDrop(const File& inFile)
+bool SourceAudioManager::onFileDrop(const File& inFile, bool inRestore)
 {
     const State state = mProcessor->getState();
 
@@ -342,6 +401,10 @@ bool SourceAudioManager::onFileDrop(const File& inFile)
         // No transcription yet: the user starts one from the piano roll, once they have had the
         // chance to pick which instruments it should look for.
         mProcessor->setStateToAudioLoaded();
+        if (!inRestore) {
+            tree.setProperty(NnId::ExportTempoId, 120.0, nullptr);
+            analyseTempo();
+        }
 
     } else {
         jassertfalse;
@@ -355,6 +418,7 @@ void SourceAudioManager::clear()
     if (mIsRecording) {
         stopRecording();
     }
+    _cancelTempo(TempoStatus::Default);
 
     // Before the buffers go: the peaks borrow mDownsampledSourceAudio rather than copying it.
     mWaveformPeaks.clear();
@@ -447,7 +511,7 @@ void SourceAudioManager::valueTreePropertyChanged(ValueTree& treeWhosePropertyHa
                 return;
             }
 
-            onFileDrop(File(path));
+            onFileDrop(File(path), true);
 
             // If loading state from recorded audio, add to files to delete on clear.
             if (NNFileUtils::isRecordingFile(mSourceFile)) {

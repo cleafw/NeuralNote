@@ -7,6 +7,82 @@
 #include "NnFonts.h"
 #include "NnIcons.h"
 
+void nn::colours::applyTheme(bool light)
+{
+    const auto pick = [light](juce::uint32 dark, juce::uint32 bright) { return rgb(light ? bright : dark); };
+    windowBorder = pick(0x26282e, 0xc8d1db);
+    bgRoot = pick(0x131417, 0xf4f6f9);
+    bgTopBar = pick(0x17181c, 0xe7edf3);
+    bgSidebar = pick(0x161719, 0xedf1f6);
+    bgPanel = pick(0x15161a, 0xf0f3f8);
+    bgGutter = bgSidebar;
+    bgControl = pick(0x1c1e23, 0xdbe4ed);
+    bgControlAlt = pick(0x1b1d21, 0xe1e8f0);
+    bgControlSubtle = pick(0x1f2126, 0xdce4ed);
+    bgControlActive = pick(0x22242a, 0xccd7e3);
+    divStrong = pick(0x24262c, 0xc2ceda);
+    divSoft = pick(0x202227, 0xcbd5e0);
+    divRow = pick(0x1e2024, 0xd3dce6);
+    divTick = pick(0x22242a, 0xa9b8c8);
+    divOctave = pick(0x232529, 0xc2ceda);
+    textBright = pick(0xf2f4f7, 0x182638);
+    textPrimary = pick(0xe7e9ec, 0x202c3d);
+    textStrong = pick(0xdcdfe4, 0x25354a);
+    textFile = pick(0xd7dade, 0x293a4d);
+    textButton = pick(0xc2c6cc, 0x26394e);
+    textIcon = pick(0x9ba1ab, 0x40556c);
+    textIconSoft = pick(0x8e939c, 0x4c6077);
+    textLabel = pick(0x7a808a, 0x485b70);
+    textDim = pick(0x6b7078, 0x4b5e73);
+    textFaint = pick(0x5d626b, 0x536479);
+    textFainter = pick(0x585d65, 0x55687d);
+    textScale = pick(0x4e535b, 0x52667c);
+    textSeparator = pick(0x33363c, 0x75879b);
+    accent = pick(0x6e9bff, 0x235bb6);
+    accentText = pick(0xa8c2ff, 0x164995);
+    warn = pick(0xf2a33c, 0x914606);
+    rec = pick(0xff6b8a, 0xb51440);
+    recIdle = rec.withMultipliedBrightness(0.48f);
+    meterLow = pick(0x4f7a52, 0x42824c);
+    meterMid = pick(0x8ec98c, 0x31743f);
+    meterHot = warn;
+    meterUnlitStrip = bgControlActive;
+    meterUnlitMaster = bgControlSubtle;
+    wavePlayed = pick(0x7d8797, 0x335f9d);
+    waveUnplayed = pick(0x3a3f47, 0x8191a6);
+    keyWhite = pick(0xe2e4e8, 0xfcfdff);
+    keyBlack = pick(0x0e0f11, 0x172231);
+    keyLabel = textLabel;
+    laneBlack = pick(0x141519, 0xe5ebf3);
+    laneWhite = pick(0x191a1e, 0xf5f8fc);
+    faderTrack = pick(0x26282e, 0xc6d2df);
+    faderTrackTop = pick(0x2b2e35, 0xb9c9da);
+    faderThumb = textPrimary;
+    faderThumbMuted = pick(0x5a5f67, 0x658098);
+    faderFillMuted = pick(0x3a3d44, 0x9cabbc);
+    volumeFill = pick(0x8e939c, 0x526c8a);
+    scrollbarThumb = pick(0x2e3138, 0xa6b9cc);
+    popupBg = pick(0x1b1d21, 0xf5f8fc);
+    popupBorder = pick(0x2e3138, 0xbac9da);
+    popupFooterBg = pick(0x191a1e, 0xe7edf4);
+    popupRowHover = pick(0x22242a, 0xdfe9f6);
+    popupTitle = textDim;
+    popupItem = pick(0xa8adb5, 0x33475e);
+    popupItemTicked = textPrimary;
+    checkboxBorder = pick(0x3a3d44, 0x73879d);
+    checkboxTick = pick(0x12131a, 0xffffff);
+    ctaBorder = accent;
+    ctaText = accentText;
+    dropZoneBorder = pick(0x2b2e35, 0x8ea4bd);
+    progressTrack = faderTrack;
+    progressFill = accent;
+    progressText = accentText;
+    zoomIcon = textFainter;
+    zoomTrack = faderTrack;
+    zoomFill = pick(0x6b7078, 0x547090);
+    zoomThumb = pick(0xc2c6cc, 0x344d68);
+}
+
 namespace nn
 {
 namespace
@@ -140,6 +216,11 @@ juce::TextLayout tooltipLayout(const juce::String& inText)
 } // namespace
 
 nn::NeuralNoteLookAndFeel::NeuralNoteLookAndFeel()
+{
+    refreshTheme();
+}
+
+void nn::NeuralNoteLookAndFeel::refreshTheme()
 {
     // Seeds every colour id the settings dialog's widgets read -- combo boxes, labels, buttons,
     // tick boxes, the MIDI input list and its scrollbar -- from nine values, rather than naming

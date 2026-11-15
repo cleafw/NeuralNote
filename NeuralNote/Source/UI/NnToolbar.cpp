@@ -20,10 +20,60 @@ constexpr int FILENAME_GAP = 12; // the least the filename keeps clear of the te
 constexpr int PILL_PADDING = 10;
 constexpr int PILL_GAP = 8;
 constexpr int TEMPO_VALUE_WIDTH = 40;
-constexpr int SPINNER_WIDTH = 7;
-constexpr int SPINNER_HEIGHT = 4;
-constexpr int SPINNER_GAP = 2;
 constexpr float LABEL_TRACKING = 0.09f;
+
+juce::String tempoStatusText(SourceAudioManager::TempoStatus status)
+{
+    using Status = SourceAudioManager::TempoStatus;
+    switch (status) {
+        case Status::Analysing: return nn::tr("Analysing audio...");
+        case Status::Estimated: return nn::tr("Estimated from audio");
+        case Status::Uncertain: return nn::tr("No reliable beat found. Tap or enter BPM.");
+        case Status::Manual: return nn::tr("Entered manually");
+        case Status::Tapped: return nn::tr("Set by tapping");
+        case Status::Host: return nn::tr("From the host tempo");
+        case Status::Restored: return nn::tr("Restored from session");
+        case Status::Default: return nn::tr("Default (not measured)");
+    }
+    return {};
+}
+
+class TempoTools final : public juce::Component, private juce::Timer
+{
+public:
+    explicit TempoTools(std::function<juce::String()> inStatus) : status(std::move(inStatus))
+    {
+        heading.setText(nn::tr("Tempo tools"), juce::dontSendNotification);
+        hint.setText(nn::tr("Tap the beat at least 4 times."), juce::dontSendNotification);
+        hint.setJustificationType(juce::Justification::centredLeft);
+        for (auto* child : std::array<juce::Component*, 6>{&heading, &readout, &analyse, &tap, &reset, &hint})
+            addAndMakeVisible(*child);
+        setSize(332, 145);
+        timerCallback();
+        startTimerHz(5);
+    }
+
+    void resized() override
+    {
+        auto area = getLocalBounds().reduced(10);
+        heading.setBounds(area.removeFromTop(22));
+        readout.setBounds(area.removeFromTop(25));
+        analyse.setBounds(area.removeFromTop(27));
+        area.removeFromTop(5);
+        auto actions = area.removeFromTop(27);
+        tap.setBounds(actions.removeFromLeft(actions.getWidth() * 2 / 3).withTrimmedRight(6));
+        reset.setBounds(actions);
+        hint.setBounds(area);
+    }
+
+    juce::TextButton analyse {nn::tr("Analyse audio")}, tap {nn::tr("Tap the beat")}, reset {nn::tr("Reset taps")};
+    juce::Label hint;
+
+private:
+    void timerCallback() override { readout.setText(status(), juce::dontSendNotification); }
+    std::function<juce::String()> status;
+    juce::Label heading, readout;
+};
 } // namespace
 
 NnToolbar::NnToolbar(NeuralNoteAudioProcessor& inProcessor)
@@ -34,24 +84,35 @@ NnToolbar::NnToolbar(NeuralNoteAudioProcessor& inProcessor)
         if (inText.isEmpty()) {
             return false;
         }
+        if (inText.indexOfChar('.') != inText.lastIndexOfChar('.')) return false;
 
         const float tempo = inText.getFloatValue();
         return tempo >= 20.0f && tempo <= 999.0f;
     };
 
-    auto correct_tempo = [](const juce::String& inText) {
-        return inText.isEmpty() ? juce::String("120")
-                                : juce::String(juce::jlimit(20.0f, 999.0f, inText.getFloatValue()));
+    auto correct_tempo = [this](const juce::String&) {
+        return NumericTextEditor<double>::numberToStr(
+            static_cast<double>(mProcessor.getValueTree().getProperty(NnId::ExportTempoId, 120.0)));
     };
 
     mTempoEditor = std::make_unique<NumericTextEditor<double>>(
         &mProcessor, NnId::ExportTempoId, 6, 120.0, juce::Justification::centredLeft, tempo_is_valid, correct_tempo);
     mTempoEditor->setTooltip(nn::tr(NeuralNoteTooltips::export_tempo));
+    mTempoEditor->onValidEdit = [this] {
+        mTapTempo.reset();
+        mProcessor.getSourceAudioManager()->markManualTempo();
+    };
 
     // TextEditor only centres vertically when the line fits below its top indent, so the indent goes
     // and the editor takes the pill's full height.
     mTempoEditor->setIndents(mTempoEditor->getLeftIndent(), 0);
     addAndMakeVisible(*mTempoEditor);
+    mTempoToolsButton.setLabel(nn::tr("Measure"), nn::fonts::buttonLabel());
+    mTempoToolsButton.setPadding(8, 8, 0);
+    mTempoToolsButton.setColour(NnFlatButton::backgroundColourId, nn::colours::bgControlAlt);
+    mTempoToolsButton.setTooltip(nn::tr("Analyse the audio or tap to set BPM"));
+    mTempoToolsButton.onClick = [this] { _showTempoTools(); };
+    addAndMakeVisible(mTempoToolsButton);
 
     mExportButton.setIcon(nn::icons::folderStroked, NnFlatButton::IconStyle::stroked, 13.0f);
     mExportButton.setLabel(nn::tr("Export MIDI out"), nn::fonts::buttonLabel());
@@ -99,10 +160,11 @@ void NnToolbar::resized()
     place_right(mClearButton, button_height);
     place_right(mDragButton, mDragButton.getIdealWidth());
     place_right(mExportButton, mExportButton.getIdealWidth());
+    place_right(mTempoToolsButton, mTempoToolsButton.getIdealWidth());
 
     const int label_width =
-        juce::roundToInt(std::ceil(nn::trackedTextWidth(nn::tr("EXPORT TEMPO"), nn::fonts::pillLabel(), LABEL_TRACKING)));
-    const int tempo_width = 2 * PILL_PADDING + label_width + PILL_GAP + TEMPO_VALUE_WIDTH + PILL_GAP + SPINNER_WIDTH;
+        juce::roundToInt(std::ceil(nn::trackedTextWidth("BPM", nn::fonts::pillLabel(), LABEL_TRACKING)));
+    const int tempo_width = 2 * PILL_PADDING + label_width + PILL_GAP + TEMPO_VALUE_WIDTH;
 
     mTempoPill = bounds.removeFromRight(tempo_width).withSizeKeepingCentre(tempo_width, button_height);
     mTempoEditor->setBounds(
@@ -140,8 +202,11 @@ void NnToolbar::updateEnablements()
     // Export and drag stay off mid-transcription: a half-finished file gives no sign that it is one.
     mExportButton.setEnabled(is_finished);
     mDragButton.setEnabled(is_finished);
-    mTempoEditor->setEnabled(is_finished);
-    mTempoEditor->setAlpha(is_finished ? 1.0f : nn::DISABLED_ALPHA);
+    const bool has_audio = mProcessor.canPlay() && mProcessor.getState() != Recording;
+    mTempoEditor->setEnabled(has_audio);
+    mTempoEditor->setAlpha(has_audio ? 1.0f : nn::DISABLED_ALPHA);
+    mTempoToolsButton.setEnabled(has_audio);
+    if (!has_audio) mTapTempo.reset();
 
     // Not while recording: clearing would stop the recording behind the record button's back.
     const State state = mProcessor.getState();
@@ -150,6 +215,41 @@ void NnToolbar::updateEnablements()
 
     resized();
     repaint();
+}
+
+void NnToolbar::_showTempoTools()
+{
+    const juce::Component::SafePointer<NnToolbar> safe(this);
+    auto tools = std::make_unique<TempoTools>([safe]() -> juce::String {
+        if (!safe) return {};
+        const auto status = safe->mProcessor.getSourceAudioManager()->getTempoStatus();
+        const auto description = tempoStatusText(status);
+        if (status == SourceAudioManager::TempoStatus::Analysing || status == SourceAudioManager::TempoStatus::Uncertain)
+            return description;
+        const double bpm = safe->mProcessor.getValueTree().getProperty(NnId::ExportTempoId, 120.0);
+        return juce::String(bpm, 1) + " BPM  -  " + description;
+    });
+    auto* controls = tools.get();
+    mTapTempo.reset();
+    controls->analyse.onClick = [safe, controls] {
+        if (!safe) return;
+        safe->mTapTempo.reset();
+        controls->hint.setText(nn::tr("Tap the beat at least 4 times."), juce::dontSendNotification);
+        safe->mProcessor.getSourceAudioManager()->analyseTempo();
+    };
+    controls->tap.onClick = [safe, controls] {
+        if (!safe || !safe->mTempoToolsButton.isEnabled()) return;
+        const auto bpm = safe->mTapTempo.tap(juce::Time::getMillisecondCounterHiRes() / 1000.0);
+        if (bpm) safe->mProcessor.getSourceAudioManager()->applyTapTempo(*bpm);
+        controls->hint.setText(nn::tr("Taps: {count}").replace("{count}", juce::String(safe->mTapTempo.count())),
+                               juce::dontSendNotification);
+    };
+    controls->reset.onClick = [safe, controls] {
+        if (!safe) return;
+        safe->mTapTempo.reset();
+        controls->hint.setText(nn::tr("Tap the beat at least 4 times."), juce::dontSendNotification);
+    };
+    juce::CallOutBox::launchAsynchronously(std::move(tools), mTempoToolsButton.getScreenBounds(), nullptr);
 }
 
 void NnToolbar::_exportMidiFile()
@@ -231,14 +331,5 @@ void NnToolbar::_paintTempoPill(juce::Graphics& g) const
 
     g.setColour(nn::colours::textDim.withMultipliedAlpha(alpha));
     nn::drawTrackedText(
-        g, nn::tr("EXPORT TEMPO"), nn::fonts::pillLabel(), content.toFloat(), juce::Justification::centredLeft, LABEL_TRACKING);
-
-    // Stacked triangles rather than a spinner control: the value is typed, and these say the field
-    // is a number without pretending to be a second way of setting it.
-    auto spinner =
-        content.removeFromRight(SPINNER_WIDTH).withSizeKeepingCentre(SPINNER_WIDTH, 2 * SPINNER_HEIGHT + SPINNER_GAP);
-
-    g.fillPath(nn::icons::triangleUp(spinner.removeFromTop(SPINNER_HEIGHT).toFloat()));
-    spinner.removeFromTop(SPINNER_GAP);
-    g.fillPath(nn::icons::triangleDown(spinner.toFloat()));
+        g, "BPM", nn::fonts::pillLabel(), content.toFloat(), juce::Justification::centredLeft, LABEL_TRACKING);
 }

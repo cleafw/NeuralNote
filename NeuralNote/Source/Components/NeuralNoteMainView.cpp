@@ -301,6 +301,17 @@ void NeuralNoteMainView::_buildSettingsMenu()
         language_menu.addItem(item);
     }
     mSettingsMenu->addSubMenu(nn::tr("Language"), language_menu);
+    PopupMenu themeMenu;
+    for (const auto light : {false, true}) {
+        themeMenu.addItem(light ? nn::tr("Light theme") : nn::tr("Dark theme"), true,
+                          NnGlobalSettings::getLightTheme() == light, [this, light] {
+            if (NnGlobalSettings::getLightTheme() == light) return;
+            NnGlobalSettings::setLightTheme(light);
+            const Component::SafePointer<NeuralNoteEditor> editor(findParentComponentOfClass<NeuralNoteEditor>());
+            MessageManager::callAsync([editor] { if (editor) editor->refreshAppearance(); });
+        });
+    }
+    mSettingsMenu->addSubMenu(nn::tr("Theme"), themeMenu);
     mSettingsMenu->addSeparator();
 
     // Applies from the next transcription: the model is loaded per run.

@@ -21,6 +21,7 @@ class NeuralNoteAudioProcessor;
 class SourceAudioManager
     : public ValueTree::Listener
     , public juce::ChangeBroadcaster
+    , private juce::Timer
 {
 public:
     explicit SourceAudioManager(NeuralNoteAudioProcessor* inProcessor);
@@ -57,7 +58,14 @@ public:
      * @param inFile Audio file to load
      * @return Whether audio file load was successful
      */
-    bool onFileDrop(const File& inFile);
+    bool onFileDrop(const File& inFile, bool inRestore = false);
+
+    enum class TempoStatus { Default, Analysing, Estimated, Uncertain, Manual, Tapped, Host, Restored };
+    void analyseTempo();
+    void markManualTempo();
+    void applyTapTempo(double bpm);
+    void restoreTempo();
+    TempoStatus getTempoStatus() const { return mTempoStatus; }
 
     /**
      * Stop recording if needed and then reset/clear everything owned by this class.
@@ -147,6 +155,11 @@ private:
     void _tryCaptureHostTimeline();
 
     void _deleteFilesToDelete();
+    void timerCallback() override;
+    void _cancelTempo(TempoStatus status);
+    std::unique_ptr<juce::ThreadPool> mTempoPool;
+    std::shared_ptr<std::atomic<double>> mTempoResult;
+    TempoStatus mTempoStatus = TempoStatus::Default;
 
     NeuralNoteAudioProcessor* mProcessor;
 
