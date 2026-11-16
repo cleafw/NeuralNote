@@ -31,6 +31,9 @@ The screenshots show Chinese; select **Options → Language → English** to swi
 
 ## Features
 
+- **BPM detection (v2.1.4+)**: Estimate tempo on import. Use **Measure** above the waveform to reanalyse or tap the beat, or edit BPM directly. The exported MIDI uses this BPM; audio playback speed stays unchanged.
+- **Light and dark themes (v2.1.4+)**: Choose a persistent theme under **Options → Theme**.
+
 - Local, multi-instrument audio-to-MIDI transcription; automatic or explicit instrument selection.
 - Vulkan GPU support in the custom Windows build, with CPU also available; tested locally on an RTX 3060 12 GB.
 - Independent source and instrument playback, gain, pan, mute, solo and meters.

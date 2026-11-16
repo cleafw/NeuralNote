@@ -20,14 +20,13 @@ Linux 推荐通过 `sudo apt install ./NeuralNote_Linux_x64.deb` 安装，使包
 
 ### 本版内容
 
-- 模型下载可手动选 Hugging Face 或 GitHub。大型模型从 GitHub 下载时，程序会自动合并分片并校验。
-- 已安装的模型也显示「重新下载…」，新文件校验通过前保留原模型。
-- 模型面板底部新增「夸克网盘下载」和「加载本地模型…」。从 [夸克分享页](https://pan.quark.cn/s/75f64075d604) 下载任意一个完整的 `.gguf`，保留原文件名，在软件中选中即可。软件会校验并直接使用该位置，无需解压或移动；网盘下载可能需要登录。
-- 右上角「联系我们」直达 [「几个叶子」B 站主页](https://space.bilibili.com/40005809)。
+- **自动测速**：导入音频后自动估算 BPM，不必先转录。配器或力度变化使整段节拍不够突出时，会分段检测；多个片段指向相近速度时给出估算。
+- **跟拍测速**：在波形上方点「测速」，可重新分析，或跟着主拍点至少 4 下；也可直接编辑 BPM。BPM 会写入导出的 MIDI，不改变原音频播放速度。已有会话会保留保存的 BPM。
+- **亮暗主题**：「选项 → 主题」可切换亮色或暗色。默认暗色，选择会保存。
 
 ### License and verification
 
-v2.1.3 adds GitHub model downloads, re-download for installed models, a [Quark Drive mirror](https://pan.quark.cn/s/75f64075d604), and **Load local model...**. Keep the original GGUF filename; NeuralNote verifies the selected file and uses it in place. GitHub large-model parts are joined automatically. **Contact us** opens the maintainer's Bilibili profile.
+v2.1.4 estimates BPM when audio is imported and compares sections if the overall beat is unclear. Open **Measure** above the waveform to reanalyse or tap at least four beats, or edit BPM directly. The chosen BPM is written to exported MIDI and does not change audio playback speed. Choose a persistent light or dark theme under **Options → Theme**.
 
 This community binary distribution uses JUCE under AGPLv3; complete corresponding source is attached, and original component notices are retained. MuScriptor model weights are downloaded separately under CC BY-NC 4.0.
 
